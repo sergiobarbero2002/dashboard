@@ -1,0 +1,48 @@
+{
+  "version": 2,
+  "name": "smarthotels-dashboard",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "origin-when-cross-origin"
+        }
+      ]
+    }
+  ],
+  "env": {
+    "POSTGRES_HOST": "@postgres_host",
+    "POSTGRES_PORT": "@postgres_port",
+    "POSTGRES_DB": "@postgres_db",
+    "POSTGRES_USER": "@postgres_user",
+    "POSTGRES_PASSWORD": "@postgres_password",
+    "POSTGRES_SSL": "@postgres_ssl",
+    "NEXT_PUBLIC_APP_NAME": "@next_public_app_name",
+    "JWT_SECRET": "@jwt_secret",
+    "NEXT_PUBLIC_SUPABASE_URL": "@next_public_supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@next_public_supabase_anon_key",
+    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key"
+  }
+}
