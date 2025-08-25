@@ -6,6 +6,8 @@ import { useSupabase } from '@/components/providers/SupabaseProvider'
 import { Button } from '@/components/ui/Button'
 import { CheckCircle } from 'lucide-react'
 import { useSound } from '@/hooks/useSound'
+import { useToast } from '@/hooks/useToast'
+import { ToastContainer } from '@/components/ui/Toast'
 import Image from 'next/image'
 import { ParticlesBackground } from '@/components/ui/ParticlesBackground'
 
@@ -20,6 +22,7 @@ export default function LoginPage() {
   const { signIn } = useSupabase()
   const router = useRouter()
   const { playClick, playSuccess } = useSound()
+  const { toasts, removeToast, showSuccess, showError } = useToast()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,6 +38,7 @@ export default function LoginPage() {
       
       // Mostrar mensaje de éxito
       setSuccess(true)
+      showSuccess('¡Sesión iniciada correctamente!')
       playSuccess() // Sonido de éxito
       
       // Redirigir después de 1.5 segundos para que el usuario vea el mensaje
@@ -47,17 +51,18 @@ export default function LoginPage() {
       
       if (err.message) {
         if (err.message.includes('Invalid login credentials')) {
-          errorMessage = '❌ Credenciales incorrectas. Verifica tu email y contraseña.'
+          errorMessage = 'Credenciales incorrectas. Verifica tu email y contraseña.'
         } else if (err.message.includes('Email not confirmed')) {
-          errorMessage = '📧 Email no confirmado. Revisa tu bandeja de entrada.'
+          errorMessage = 'Email no confirmado. Revisa tu bandeja de entrada.'
         } else if (err.message.includes('Too many requests')) {
-          errorMessage = '⏰ Demasiados intentos. Espera unos minutos antes de volver a intentar.'
+          errorMessage = 'Demasiados intentos. Espera unos minutos antes de volver a intentar.'
         } else {
-          errorMessage = `❌ Error: ${err.message}`
+          errorMessage = `Error: ${err.message}`
         }
       }
       
       setError(errorMessage)
+      showError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -76,6 +81,7 @@ export default function LoginPage() {
     try {
       await signIn('demo@smarthotels.es', 'demo123')
       setSuccess(true)
+      showSuccess('¡Demo iniciada correctamente!')
       playSuccess()
       setTimeout(() => {
         router.push('/')
@@ -83,9 +89,10 @@ export default function LoginPage() {
     } catch (err: any) {
       let errorMessage = 'Error al iniciar sesión de demo.'
       if (err.message) {
-        errorMessage = `❌ Error de demo: ${err.message}`
+        errorMessage = `Error de demo: ${err.message}`
       }
       setError(errorMessage)
+      showError(errorMessage)
       setIsDemo(false)
     } finally {
       setLoading(false)
@@ -214,6 +221,15 @@ export default function LoginPage() {
           <p>Soporte: contact@smarthotels.es</p>
         </div>
       </div>
+
+      {/* Sistema de Notificaciones */}
+      <ToastContainer 
+        toasts={toasts.map(toast => ({
+          ...toast,
+          onClose: removeToast
+        }))} 
+        onClose={removeToast} 
+      />
     </div>
   )
 }

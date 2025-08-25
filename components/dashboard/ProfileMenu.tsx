@@ -3,9 +3,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
-import { LogOut, User, ChevronDown } from 'lucide-react'
+import { LogOut, User, ChevronDown, AlertTriangle } from 'lucide-react'
 import { useSupabase } from '@/components/providers/SupabaseProvider'
 import { useSound } from '@/hooks/useSound'
+import { useToast } from '@/hooks/useToast'
 import { ProfileImage } from '@/components/ui/ProfileImage'
 
 export function ProfileMenu() {
@@ -13,7 +14,9 @@ export function ProfileMenu() {
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const { playClick } = useSound()
+  const { showSuccess, showError } = useToast()
   const menuRef = useRef<HTMLDivElement>(null)
 
   // Cerrar menú al hacer clic fuera
@@ -21,6 +24,7 @@ export function ProfileMenu() {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsOpen(false)
+        setShowLogoutConfirm(false)
       }
     }
 
@@ -32,26 +36,39 @@ export function ProfileMenu() {
     playClick()
     console.log('🔄 Iniciando proceso de logout...')
     
-    if (confirm('¿Estás seguro de que quieres cerrar sesión?')) {
-      try {
-        console.log('✅ Usuario confirmó logout, ejecutando signOut...')
-        setIsLoggingOut(true)
-        
-        await signOut()
-        console.log('✅ signOut ejecutado correctamente')
-        
-        console.log('🔄 Redirigiendo a /login...')
+    try {
+      console.log('✅ Usuario confirmó logout, ejecutando signOut...')
+      setIsLoggingOut(true)
+      setShowLogoutConfirm(false)
+      setIsOpen(false)
+      
+      await signOut()
+      console.log('✅ signOut ejecutado correctamente')
+      
+      showSuccess('Sesión cerrada exitosamente')
+      console.log('🔄 Redirigiendo a /login...')
+      
+      // Pequeño delay para mostrar la notificación antes de redirigir
+      setTimeout(() => {
         router.push('/login')
-      } catch (error) {
-        console.error('❌ Error al cerrar sesión:', error)
-        alert('Error al cerrar sesión. Inténtalo de nuevo.')
-      } finally {
-        setIsLoggingOut(false)
-        console.log('🔄 Estado de logout reseteado')
-      }
-    } else {
-      console.log('❌ Usuario canceló el logout')
+      }, 1000)
+      
+    } catch (error) {
+      console.error('❌ Error al cerrar sesión:', error)
+      showError('Error al cerrar sesión. Inténtalo de nuevo.')
+    } finally {
+      setIsLoggingOut(false)
+      console.log('🔄 Estado de logout reseteado')
     }
+  }
+
+  const openLogoutConfirm = () => {
+    playClick()
+    setShowLogoutConfirm(true)
+  }
+
+  const closeLogoutConfirm = () => {
+    setShowLogoutConfirm(false)
   }
 
   return (
@@ -127,7 +144,7 @@ export function ProfileMenu() {
           {/* Botón de cerrar sesión */}
           <div className="px-4 py-2">
             <Button
-              onClick={handleSignOut}
+              onClick={openLogoutConfirm}
               disabled={isLoggingOut}
               variant="ghost"
               size="sm"
@@ -136,6 +153,61 @@ export function ProfileMenu() {
               <LogOut className="h-4 w-4 mr-3" />
               {isLoggingOut ? 'Cerrando...' : 'Cerrar sesión'}
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación de logout */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 transform transition-all duration-300 scale-100">
+            {/* Header del modal */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Cerrar Sesión</h3>
+                <p className="text-sm text-gray-600">Confirmar acción</p>
+              </div>
+            </div>
+
+            {/* Contenido del modal */}
+            <div className="mb-6">
+              <p className="text-gray-700 mb-2">
+                ¿Estás seguro de que quieres cerrar tu sesión?
+              </p>
+              <p className="text-sm text-gray-500">
+                Serás redirigido a la página de inicio de sesión.
+              </p>
+            </div>
+
+            {/* Botones de acción */}
+            <div className="flex gap-3">
+              <Button
+                onClick={closeLogoutConfirm}
+                variant="outline"
+                className="flex-1"
+                disabled={isLoggingOut}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSignOut}
+                variant="destructive"
+                className="flex-1"
+                disabled={isLoggingOut}
+              >
+                {isLoggingOut ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Cerrando...
+                  </>
+                ) : (
+                  'Cerrar Sesión'
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       )}

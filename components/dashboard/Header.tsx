@@ -9,16 +9,20 @@ interface HeaderProps {
   dateRange?: { from: Date; to: Date }
   onDateChange?: (from: Date, to: Date) => void
   onRefresh?: () => void
+  onIntervalChange?: (interval: string) => void
   loading?: boolean
   lastUpdated?: Date
+  currentInterval?: string
 }
 
 export function Header({ 
   dateRange, 
   onDateChange, 
   onRefresh, 
+  onIntervalChange,
   loading, 
-  lastUpdated 
+  lastUpdated,
+  currentInterval
 }: HeaderProps) {
   // Solo mostrar estado de carga si no hay funciones críticas
   if (!onDateChange && !onRefresh) {
@@ -86,8 +90,10 @@ export function Header({
             dateRange={dateRange}
             onDateChange={onDateChange}
             onRefresh={onRefresh}
+            onIntervalChange={onIntervalChange}
             loading={loading}
             lastUpdated={lastUpdated}
+            currentInterval={currentInterval}
           />
         </div>
         

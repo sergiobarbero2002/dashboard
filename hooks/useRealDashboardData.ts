@@ -81,10 +81,11 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange())
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [previousRawData, setPreviousRawData] = useState<any>(null)
+  const [currentInterval, setCurrentInterval] = useState<string>('auto')
   const { showSuccess } = useToast()
   const { playSuccess } = useSound()
 
-  const fetchData = useCallback(async (range: DateRange) => {
+  const fetchData = useCallback(async (range: DateRange, interval: string = 'auto') => {
     if (!session?.access_token) {
       console.error('❌ No hay token de sesión disponible')
       setError('No hay sesión activa')
@@ -92,6 +93,7 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
     }
 
     console.log('📅 Rango:', range.from.toLocaleDateString(), 'a', range.to.toLocaleDateString())
+    console.log('📊 Intervalo seleccionado:', interval)
     
     setLoading(true)
     setError(null)
@@ -110,8 +112,12 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
       
       console.log('📅 Período anterior:', previousFromDate, 'a', previousToDate, '(diferencia:', daysDiff, 'días)')
       
+      // Construir URL con parámetros de intervalo
+      const intervalParam = interval !== 'auto' ? `&interval=${interval}` : ''
+      const apiUrl = `/api/ops?from=${fromDate}&to=${toDate}&hotels=${JSON.stringify(selectedHotels)}${intervalParam}`
+      
       // Obtener datos del período actual
-      const response = await fetch(`/api/ops?from=${fromDate}&to=${toDate}&hotels=${JSON.stringify(selectedHotels)}`, {
+      const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -120,7 +126,7 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
       })
 
       // Obtener datos del período anterior para comparación
-      const previousResponse = await fetch(`/api/ops?from=${previousFromDate}&to=${previousToDate}&hotels=${JSON.stringify(selectedHotels)}`, {
+      const previousResponse = await fetch(`/api/ops?from=${previousFromDate}&to=${previousToDate}&hotels=${JSON.stringify(selectedHotels)}${intervalParam}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -494,7 +500,7 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
 
   const refreshData = useCallback(async () => {
     try {
-      await fetchData(dateRange)
+      await fetchData(dateRange, currentInterval)
       // Mostrar notificación de éxito
       showSuccess('Datos actualizados correctamente')
       // Reproducir sonido de éxito
@@ -502,7 +508,7 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
     } catch (error) {
       console.error('❌ Error al actualizar datos:', error)
     }
-  }, [fetchData, dateRange, showSuccess, playSuccess])
+  }, [fetchData, dateRange, currentInterval, showSuccess, playSuccess])
 
 
 
@@ -513,20 +519,28 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
     setDateRange(newRange)
     
     // Luego cargar los datos con el nuevo rango
-    await fetchData(newRange)
-  }, [fetchData])
+    await fetchData(newRange, currentInterval)
+  }, [fetchData, currentInterval])
+
+  const updateInterval = useCallback(async (interval: string) => {
+    // Actualizar el estado local primero
+    setCurrentInterval(interval)
+    
+    // Luego cargar los datos con el nuevo intervalo
+    await fetchData(dateRange, interval)
+  }, [fetchData, dateRange])
 
   // Cargar datos iniciales cuando haya sesión
   useEffect(() => {
     if (session?.access_token) {
-      fetchData(dateRange)
+      fetchData(dateRange, currentInterval)
     }
   }, [session?.access_token]) // Solo depender del token de sesión
 
   // Cargar datos cuando cambien los hoteles seleccionados
   useEffect(() => {
     if (session?.access_token && selectedHotels.length > 0) {
-      fetchData(dateRange)
+      fetchData(dateRange, currentInterval)
     }
   }, [selectedHotels, session?.access_token]) // Depender de hoteles seleccionados
 
@@ -544,7 +558,9 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
     error,
     dateRange: safeDateRange,
     lastUpdated: safeLastUpdated,
+    currentInterval,
     refreshData,
-    updateDateRange
+    updateDateRange,
+    updateInterval
   }
 }

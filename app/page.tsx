@@ -66,8 +66,10 @@ export default function HomePage() {
     loading: dataLoading,
     dateRange,
     lastUpdated,
+    currentInterval,
     refreshData,
     updateDateRange,
+    updateInterval,
     error
   } = useRealDashboardData(savingsAssumptions)
 
@@ -207,8 +209,10 @@ export default function HomePage() {
           dateRange={dateRange}
           onDateChange={updateDateRange}
           onRefresh={refreshData}
+          onIntervalChange={updateInterval}
           loading={dataLoading}
           lastUpdated={lastUpdated}
+          currentInterval={currentInterval}
         />
         <main className="pt-24 px-4 pb-4">
           <div className="max-w-7xl mx-auto">
@@ -229,8 +233,10 @@ export default function HomePage() {
             dateRange={dateRange}
             onDateChange={updateDateRange}
             onRefresh={refreshData}
+            onIntervalChange={updateInterval}
             loading={dataLoading}
             lastUpdated={lastUpdated}
+            currentInterval={currentInterval}
           />
       
       <main className="pt-20 px-4 pb-4 relative z-20">

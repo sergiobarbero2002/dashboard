@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
     const from = searchParams.get('from')
     const to = searchParams.get('to')
     const selectedHotels = searchParams.get('hotels')
+    const interval = searchParams.get('interval') || 'auto'
     
     if (!from || !to) {
       return NextResponse.json({ error: 'Missing date parameters' }, { status: 400 })
@@ -82,9 +83,8 @@ export async function GET(request: NextRequest) {
     console.log('📊 Hoteles que se usarán para filtrar:', hotelsWithData)
     console.log('🔧 Función getQueryParams ejemplo:', getQueryParams(from, to))
     console.log('📅 Rango de fechas:', { from, to })
+    console.log('📊 Intervalo seleccionado:', interval)
     console.log('🏢 Tenant ID:', tenantId)
-
-    // ===== QUERIES ORGANIZADAS POR SECCIÓN =====
 
     // ===== DEBUG: VERIFICAR DATOS EN LA BASE =====
     try {
@@ -210,68 +210,126 @@ export async function GET(request: NextRequest) {
     // 5. VOLUMEN DINÁMICO E INTELIGENTE (con emails automáticos)
     let volumeResult: any = { rows: [] }
     try {
-      // Calcular la diferencia en días para determinar el intervalo óptimo
-      const daysDiff = Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / (1000 * 60 * 60 * 24))
-      
+      // Usar el intervalo seleccionado por el usuario o calcular automáticamente si es 'auto'
       let timeInterval: string
       let intervalName: string
       
-      if (daysDiff <= 7) {
-        // Si es una semana o menos, usar intervalos de 1 día
-        timeInterval = 'day'
-        intervalName = 'Día'
-      } else if (daysDiff <= 31) {
-        // Si es un mes o menos, usar intervalos de 1 semana
-        timeInterval = 'week'
-        intervalName = 'Semana'
-      } else if (daysDiff <= 90) {
-        // Si es un trimestre o menos, usar intervalos de 1 mes
-        timeInterval = 'month'
-        intervalName = 'Mes'
-      } else if (daysDiff <= 365) {
-        // Si es un año o menos, usar intervalos de 1 mes
-        timeInterval = 'month'
-        intervalName = 'Mes'
+      if (interval === 'auto') {
+        // Calcular la diferencia en días para determinar el intervalo óptimo
+        const daysDiff = Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / (1000 * 60 * 60 * 24))
+        
+        if (daysDiff <= 7) {
+          // Si es una semana o menos, usar intervalos de 1 día
+          timeInterval = 'day'
+          intervalName = 'Día'
+        } else if (daysDiff <= 31) {
+          // Si es un mes o menos, usar intervalos de 1 semana
+          timeInterval = 'week'
+          intervalName = 'Semana'
+        } else if (daysDiff <= 90) {
+          // Si es un trimestre o menos, usar intervalos de 1 mes
+          timeInterval = 'month'
+          intervalName = 'Mes'
+        } else if (daysDiff <= 365) {
+          // Si es un año o menos, usar intervalos de 1 mes
+          timeInterval = 'month'
+          intervalName = 'Mes'
+        } else {
+          // Si es más de un año, usar intervalos de 1 año
+          timeInterval = 'year'
+          intervalName = 'Año'
+        }
       } else {
-        // Si es más de un año, usar intervalos de 1 trimestre
-        timeInterval = 'quarter'
-        intervalName = 'Trimestre'
+        // Usar el intervalo seleccionado por el usuario
+        // Extraer el tipo y la cantidad del intervalo (ej: day2, week3, month2)
+        const match = interval.match(/^(\w+)(\d+)$/)
+        if (match) {
+          const [, type, quantity] = match
+          const quantityNum = parseInt(quantity)
+          
+          timeInterval = type
+          switch (type) {
+            case 'day':
+              intervalName = quantityNum === 1 ? 'Día' : `${quantityNum} Días`
+              break
+            case 'week':
+              intervalName = quantityNum === 1 ? 'Semana' : `${quantityNum} Semanas`
+              break
+            case 'month':
+              intervalName = quantityNum === 1 ? 'Mes' : `${quantityNum} Meses`
+              break
+            case 'year':
+              intervalName = quantityNum === 1 ? 'Año' : `${quantityNum} Años`
+              break
+            default:
+              timeInterval = 'month'
+              intervalName = 'Mes'
+          }
+        } else {
+          // Fallback para intervalos simples
+          timeInterval = interval
+          switch (interval) {
+            case 'day':
+              intervalName = 'Día'
+              break
+            case 'week':
+              intervalName = 'Semana'
+              break
+            case 'month':
+              intervalName = 'Mes'
+              break
+            case 'year':
+              intervalName = 'Año'
+              break
+            default:
+              timeInterval = 'month'
+              intervalName = 'Mes'
+          }
+        }
       }
+      
+      console.log(`📊 Usando intervalo: ${timeInterval} (${intervalName})`)
       
       // Construir la consulta según el tipo de intervalo
       let volumeQuery: string = ''
       let queryParams: any[] = []
+      
+      // Extraer la cantidad del intervalo si existe
+      const match = interval.match(/^(\w+)(\d+)$/)
+      const intervalQuantity = match ? parseInt(match[2]) : 1
       
       if (timeInterval === 'day') {
         volumeQuery = `
           WITH time_intervals AS (
             SELECT 
               generate_series(
-                DATE_TRUNC('day', $1::date),
-                DATE_TRUNC('day', $2::date),
-                INTERVAL '1 day'
+                $1::date,
+                $2::date,
+                INTERVAL '${intervalQuantity} day'
               ) AS interval_start
           ),
           email_counts AS (
             SELECT 
-              DATE_TRUNC('day', received_ts) AS interval_start,
+              received_ts,
               COUNT(*) AS total_emails,
               COUNT(*) FILTER (WHERE ai_reply IS NOT NULL AND manual_intervention = FALSE) AS emails_automatic,
               COUNT(*) FILTER (WHERE response_ts IS NULL AND received_ts IS NOT NULL) AS emails_unanswered
             FROM mail_message m
             WHERE m.received_ts BETWEEN $1 AND $2
             ${hotelFilter}
-            GROUP BY DATE_TRUNC('day', m.received_ts)
+            GROUP BY received_ts
           )
           SELECT 
             ti.interval_start,
-            COALESCE(ec.total_emails, 0) AS total_emails,
-            COALESCE(ec.emails_automatic, 0) AS emails_automatic,
-            COALESCE(ec.emails_unanswered, 0) AS emails_unanswered,
+            COALESCE(SUM(ec.total_emails), 0) AS total_emails,
+            COALESCE(SUM(ec.emails_automatic), 0) AS emails_automatic,
+            COALESCE(SUM(ec.emails_unanswered), 0) AS emails_unanswered,
             'day' AS interval_type,
-            'Día' AS interval_name
+            '${intervalName}' AS interval_name
           FROM time_intervals ti
-          LEFT JOIN email_counts ec ON ti.interval_start = ec.interval_start
+          LEFT JOIN email_counts ec ON ec.received_ts >= ti.interval_start 
+            AND ec.received_ts < ti.interval_start + INTERVAL '${intervalQuantity} day'
+          GROUP BY ti.interval_start
           ORDER BY ti.interval_start
         `
         queryParams = getQueryParams(from, to)
@@ -282,7 +340,7 @@ export async function GET(request: NextRequest) {
               generate_series(
                 DATE_TRUNC('week', $1::date),
                 DATE_TRUNC('week', $2::date),
-                INTERVAL '1 week'
+                INTERVAL '${intervalQuantity} week'
               ) AS interval_start
           ),
           email_counts AS (
@@ -298,13 +356,15 @@ export async function GET(request: NextRequest) {
           )
           SELECT 
             ti.interval_start,
-            COALESCE(ec.total_emails, 0) AS total_emails,
-            COALESCE(ec.emails_automatic, 0) AS emails_automatic,
-            COALESCE(ec.emails_unanswered, 0) AS emails_unanswered,
+            COALESCE(SUM(ec.total_emails), 0) AS total_emails,
+            COALESCE(SUM(ec.emails_automatic), 0) AS emails_automatic,
+            COALESCE(SUM(ec.emails_unanswered), 0) AS emails_unanswered,
             'week' AS interval_type,
-            'Semana' AS interval_name
+            '${intervalName}' AS interval_name
           FROM time_intervals ti
-          LEFT JOIN email_counts ec ON ti.interval_start = ec.interval_start
+          LEFT JOIN email_counts ec ON ec.interval_start >= ti.interval_start 
+            AND ec.interval_start < ti.interval_start + INTERVAL '${intervalQuantity} week'
+          GROUP BY ti.interval_start
           ORDER BY ti.interval_start
         `
         queryParams = getQueryParams(from, to)
@@ -315,7 +375,7 @@ export async function GET(request: NextRequest) {
               generate_series(
                 DATE_TRUNC('month', $1::date),
                 DATE_TRUNC('month', $2::date),
-                INTERVAL '1 month'
+                INTERVAL '${intervalQuantity} month'
               ) AS interval_start
           ),
           email_counts AS (
@@ -331,46 +391,50 @@ export async function GET(request: NextRequest) {
           )
           SELECT 
             ti.interval_start,
-            COALESCE(ec.total_emails, 0) AS total_emails,
-            COALESCE(ec.emails_automatic, 0) AS emails_automatic,
-            COALESCE(ec.emails_unanswered, 0) AS emails_unanswered,
+            COALESCE(SUM(ec.total_emails), 0) AS total_emails,
+            COALESCE(SUM(ec.emails_automatic), 0) AS emails_automatic,
+            COALESCE(SUM(ec.emails_unanswered), 0) AS emails_unanswered,
             'month' AS interval_type,
-            'Mes' AS interval_name
+            '${intervalName}' AS interval_name
           FROM time_intervals ti
-          LEFT JOIN email_counts ec ON ti.interval_start = ec.interval_start
+          LEFT JOIN email_counts ec ON ec.interval_start >= ti.interval_start 
+            AND ec.interval_start < ti.interval_start + INTERVAL '${intervalQuantity} month'
+          GROUP BY ti.interval_start
           ORDER BY ti.interval_start
         `
         queryParams = getQueryParams(from, to)
-      } else if (timeInterval === 'quarter') {
+      } else if (timeInterval === 'year') {
         volumeQuery = `
           WITH time_intervals AS (
             SELECT 
               generate_series(
-                DATE_TRUNC('quarter', $1::date),
-                DATE_TRUNC('quarter', $2::date),
-                INTERVAL '3 months'
+                DATE_TRUNC('year', $1::date),
+                DATE_TRUNC('year', $2::date),
+                INTERVAL '${intervalQuantity} year'
               ) AS interval_start
           ),
           email_counts AS (
             SELECT 
-              DATE_TRUNC('quarter', received_ts) AS interval_start,
+              DATE_TRUNC('year', received_ts) AS interval_start,
               COUNT(*) AS total_emails,
               COUNT(*) FILTER (WHERE ai_reply IS NOT NULL AND manual_intervention = FALSE) AS emails_automatic,
               COUNT(*) FILTER (WHERE response_ts IS NULL AND received_ts IS NOT NULL) AS emails_unanswered
             FROM mail_message m
             WHERE m.received_ts BETWEEN $1 AND $2
             ${hotelFilter}
-            GROUP BY DATE_TRUNC('quarter', m.received_ts)
+            GROUP BY DATE_TRUNC('year', m.received_ts)
           )
           SELECT 
             ti.interval_start,
-            COALESCE(ec.total_emails, 0) AS total_emails,
-            COALESCE(ec.emails_automatic, 0) AS emails_automatic,
-            COALESCE(ec.emails_unanswered, 0) AS emails_unanswered,
-            'quarter' AS interval_type,
-            'Trimestre' AS interval_name
+            COALESCE(SUM(ec.total_emails), 0) AS total_emails,
+            COALESCE(SUM(ec.emails_automatic), 0) AS emails_automatic,
+            COALESCE(SUM(ec.emails_unanswered), 0) AS emails_unanswered,
+            'year' AS interval_type,
+            '${intervalName}' AS interval_name
           FROM time_intervals ti
-          LEFT JOIN email_counts ec ON ti.interval_start = ec.interval_start
+          LEFT JOIN email_counts ec ON ec.interval_start >= ti.interval_start 
+            AND ec.interval_start < ti.interval_start + INTERVAL '${intervalQuantity} year'
+          GROUP BY ti.interval_start
           ORDER BY ti.interval_start
         `
         queryParams = getQueryParams(from, to)
@@ -568,62 +632,120 @@ export async function GET(request: NextRequest) {
     // 12. UPSELLING REVENUE POR INTERVALO DINÁMICO
     let upsellingRevenueByIntervalResult: any = { rows: [] }
     try {
-      // Usar la misma lógica de intervalos que se definió para volumen
-      const daysDiff = Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / (1000 * 60 * 60 * 24))
-      
+      // Usar el mismo intervalo que se definió para volumen
       let revenueTimeInterval: string
       let revenueIntervalName: string
       
-      if (daysDiff <= 7) {
-        revenueTimeInterval = 'day'
-        revenueIntervalName = 'Día'
-      } else if (daysDiff <= 31) {
-        revenueTimeInterval = 'week'
-        revenueIntervalName = 'Semana'
-      } else if (daysDiff <= 90) {
-        revenueTimeInterval = 'month'
-        revenueIntervalName = 'Mes'
-      } else if (daysDiff <= 365) {
-        revenueTimeInterval = 'month'
-        revenueIntervalName = 'Mes'
+      if (interval === 'auto') {
+        // Calcular la diferencia en días para determinar el intervalo óptimo
+        const daysDiff = Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / (1000 * 60 * 60 * 24))
+        
+        if (daysDiff <= 7) {
+          revenueTimeInterval = 'day'
+          revenueIntervalName = 'Día'
+        } else if (daysDiff <= 31) {
+          revenueTimeInterval = 'week'
+          revenueIntervalName = 'Semana'
+        } else if (daysDiff <= 90) {
+          revenueTimeInterval = 'month'
+          revenueIntervalName = 'Mes'
+        } else if (daysDiff <= 365) {
+          revenueTimeInterval = 'month'
+          revenueIntervalName = 'Mes'
+        } else {
+          revenueTimeInterval = 'year'
+          revenueIntervalName = 'Año'
+        }
       } else {
-        revenueTimeInterval = 'quarter'
-        revenueIntervalName = 'Trimestre'
+        // Usar el intervalo seleccionado por el usuario
+        // Extraer el tipo y la cantidad del intervalo (ej: day2, week3, month2)
+        const match = interval.match(/^(\w+)(\d+)$/)
+        if (match) {
+          const [, type, quantity] = match
+          const quantityNum = parseInt(quantity)
+          
+          revenueTimeInterval = type
+          switch (type) {
+            case 'day':
+              revenueIntervalName = quantityNum === 1 ? 'Día' : `${quantityNum} Días`
+              break
+            case 'week':
+              revenueIntervalName = quantityNum === 1 ? 'Semana' : `${quantityNum} Semanas`
+              break
+            case 'month':
+              revenueIntervalName = quantityNum === 1 ? 'Mes' : `${quantityNum} Meses`
+              break
+            case 'year':
+              revenueIntervalName = quantityNum === 1 ? 'Año' : `${quantityNum} Años`
+              break
+            default:
+              revenueTimeInterval = 'month'
+              revenueIntervalName = 'Mes'
+          }
+        } else {
+          // Fallback para intervalos simples
+          revenueTimeInterval = interval
+          switch (interval) {
+            case 'day':
+              revenueIntervalName = 'Día'
+              break
+            case 'week':
+              revenueIntervalName = 'Semana'
+              break
+            case 'month':
+              revenueIntervalName = 'Mes'
+              break
+            case 'year':
+              revenueIntervalName = 'Año'
+              break
+            default:
+              revenueTimeInterval = 'month'
+              revenueIntervalName = 'Mes'
+          }
+        }
       }
+      
+      console.log(`💰 Upselling revenue usando intervalo: ${revenueTimeInterval} (${revenueIntervalName})`)
       
       // Construir la consulta según el tipo de intervalo
       let revenueQuery: string = ''
       let revenueQueryParams: any[] = []
       
+      // Extraer la cantidad del intervalo si existe
+      const revenueMatch = interval.match(/^(\w+)(\d+)$/)
+      const revenueIntervalQuantity = revenueMatch ? parseInt(revenueMatch[2]) : 1
+      
       if (revenueTimeInterval === 'day') {
         revenueQuery = `
           WITH time_intervals AS (
-        SELECT
+            SELECT
               generate_series(
-                DATE_TRUNC('day', $1::date),
-                DATE_TRUNC('day', $2::date),
-                INTERVAL '1 day'
+                $1::date,
+                $2::date,
+                INTERVAL '${revenueIntervalQuantity} day'
               ) AS interval_start
           ),
           revenue_counts AS (
             SELECT 
-              DATE_TRUNC('day', m.received_ts) AS interval_start,
+              m.received_ts,
               COALESCE(SUM(a.upsell_revenue_eur), 0) AS total_revenue
-        FROM mail_analysis a
-        JOIN mail_message m ON a.mail_uuid = m.id
-        WHERE m.received_ts BETWEEN $1 AND $2
+            FROM mail_analysis a
+            JOIN mail_message m ON a.mail_uuid = m.id
+            WHERE m.received_ts BETWEEN $1 AND $2
               AND a.upselling_offer = TRUE
               AND a.upsell_accepted = TRUE
               ${hotelFilter}
-            GROUP BY DATE_TRUNC('day', m.received_ts)
+            GROUP BY m.received_ts
           )
           SELECT 
             ti.interval_start,
-            COALESCE(rc.total_revenue, 0) AS total_revenue,
+            COALESCE(SUM(rc.total_revenue), 0) AS total_revenue,
             'day' AS interval_type,
-            'Día' AS interval_name
+            '${revenueIntervalName}' AS interval_name
           FROM time_intervals ti
-          LEFT JOIN revenue_counts rc ON ti.interval_start = rc.interval_start
+          LEFT JOIN revenue_counts rc ON rc.received_ts >= ti.interval_start 
+            AND rc.received_ts < ti.interval_start + INTERVAL '${revenueIntervalQuantity} day'
+          GROUP BY ti.interval_start
           ORDER BY ti.interval_start
         `
         revenueQueryParams = getQueryParams(from, to)
@@ -634,16 +756,16 @@ export async function GET(request: NextRequest) {
               generate_series(
                 DATE_TRUNC('week', $1::date),
                 DATE_TRUNC('week', $2::date),
-                INTERVAL '1 week'
+                INTERVAL '${revenueIntervalQuantity} week'
               ) AS interval_start
           ),
           revenue_counts AS (
             SELECT 
               DATE_TRUNC('week', m.received_ts) AS interval_start,
               COALESCE(SUM(a.upsell_revenue_eur), 0) AS total_revenue
-                    FROM mail_analysis a
-        JOIN mail_message m ON a.mail_uuid = m.id
-        WHERE m.received_ts BETWEEN $1 AND $2
+            FROM mail_analysis a
+            JOIN mail_message m ON a.mail_uuid = m.id
+            WHERE m.received_ts BETWEEN $1 AND $2
               AND a.upselling_offer = TRUE
               AND a.upsell_accepted = TRUE
               ${hotelFilter}
@@ -651,11 +773,13 @@ export async function GET(request: NextRequest) {
           )
           SELECT 
             ti.interval_start,
-            COALESCE(rc.total_revenue, 0) AS total_revenue,
+            COALESCE(SUM(rc.total_revenue), 0) AS total_revenue,
             'week' AS interval_type,
-            'Semana' AS interval_name
+            '${revenueIntervalName}' AS interval_name
           FROM time_intervals ti
-          LEFT JOIN revenue_counts rc ON ti.interval_start = rc.interval_start
+          LEFT JOIN revenue_counts rc ON rc.interval_start >= ti.interval_start 
+            AND rc.interval_start < ti.interval_start + INTERVAL '${revenueIntervalQuantity} week'
+          GROUP BY ti.interval_start
           ORDER BY ti.interval_start
         `
         revenueQueryParams = getQueryParams(from, to)
@@ -666,16 +790,16 @@ export async function GET(request: NextRequest) {
               generate_series(
                 DATE_TRUNC('month', $1::date),
                 DATE_TRUNC('month', $2::date),
-                INTERVAL '1 month'
+                INTERVAL '${revenueIntervalQuantity} month'
               ) AS interval_start
           ),
           revenue_counts AS (
             SELECT 
               DATE_TRUNC('month', m.received_ts) AS interval_start,
               COALESCE(SUM(a.upsell_revenue_eur), 0) AS total_revenue
-                    FROM mail_analysis a
-        JOIN mail_message m ON a.mail_uuid = m.id
-        WHERE m.received_ts BETWEEN $1 AND $2
+            FROM mail_analysis a
+            JOIN mail_message m ON a.mail_uuid = m.id
+            WHERE m.received_ts BETWEEN $1 AND $2
               AND a.upselling_offer = TRUE
               AND a.upsell_accepted = TRUE
               ${hotelFilter}
@@ -683,43 +807,47 @@ export async function GET(request: NextRequest) {
           )
           SELECT 
             ti.interval_start,
-            COALESCE(rc.total_revenue, 0) AS total_revenue,
+            COALESCE(SUM(rc.total_revenue), 0) AS total_revenue,
             'month' AS interval_type,
-            'Mes' AS interval_name
+            '${revenueIntervalName}' AS interval_name
           FROM time_intervals ti
-          LEFT JOIN revenue_counts rc ON ti.interval_start = rc.interval_start
+          LEFT JOIN revenue_counts rc ON rc.interval_start >= ti.interval_start 
+            AND rc.interval_start < ti.interval_start + INTERVAL '${revenueIntervalQuantity} month'
+          GROUP BY ti.interval_start
           ORDER BY ti.interval_start
         `
         revenueQueryParams = getQueryParams(from, to)
-      } else if (revenueTimeInterval === 'quarter') {
+      } else if (revenueTimeInterval === 'year') {
         revenueQuery = `
           WITH time_intervals AS (
             SELECT 
               generate_series(
-                DATE_TRUNC('quarter', $1::date),
-                DATE_TRUNC('quarter', $2::date),
-                INTERVAL '3 months'
+                DATE_TRUNC('year', $1::date),
+                DATE_TRUNC('year', $2::date),
+                INTERVAL '${revenueIntervalQuantity} year'
               ) AS interval_start
           ),
           revenue_counts AS (
             SELECT 
-              DATE_TRUNC('quarter', m.received_ts) AS interval_start,
+              DATE_TRUNC('year', m.received_ts) AS interval_start,
               COALESCE(SUM(a.upsell_revenue_eur), 0) AS total_revenue
-                    FROM mail_analysis a
-        JOIN mail_message m ON a.mail_uuid = m.id
-        WHERE m.received_ts BETWEEN $1 AND $2
+            FROM mail_analysis a
+            JOIN mail_message m ON a.mail_uuid = m.id
+            WHERE m.received_ts BETWEEN $1 AND $2
               AND a.upselling_offer = TRUE
               AND a.upsell_accepted = TRUE
               ${hotelFilter}
-            GROUP BY DATE_TRUNC('quarter', m.received_ts)
+            GROUP BY DATE_TRUNC('year', m.received_ts)
           )
           SELECT 
             ti.interval_start,
-            COALESCE(rc.total_revenue, 0) AS total_revenue,
-            'quarter' AS interval_type,
-            'Trimestre' AS interval_name
+            COALESCE(SUM(rc.total_revenue), 0) AS total_revenue,
+            'year' AS interval_type,
+            '${revenueIntervalName}' AS interval_name
           FROM time_intervals ti
-          LEFT JOIN revenue_counts rc ON ti.interval_start = rc.interval_start
+          LEFT JOIN revenue_counts rc ON rc.interval_start >= ti.interval_start 
+            AND rc.interval_start < ti.interval_start + INTERVAL '${revenueIntervalQuantity} year'
+          GROUP BY ti.interval_start
           ORDER BY ti.interval_start
         `
         revenueQueryParams = getQueryParams(from, to)
@@ -734,46 +862,102 @@ export async function GET(request: NextRequest) {
     // 13. UPSELLING POR INTERVALO DINÁMICO (ofertas y conversión)
     let upsellingByIntervalResult: any = { rows: [] }
     try {
-      // Usar la misma lógica de intervalos que se definió para volumen
-      const daysDiff = Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / (1000 * 60 * 60 * 24))
-      
+      // Usar el mismo intervalo que se definió para volumen
       let upsellingTimeInterval: string
       let upsellingIntervalName: string
       
-      if (daysDiff <= 7) {
-        upsellingTimeInterval = 'day'
-        upsellingIntervalName = 'Día'
-      } else if (daysDiff <= 31) {
-        upsellingTimeInterval = 'week'
-        upsellingIntervalName = 'Semana'
-      } else if (daysDiff <= 90) {
-        upsellingTimeInterval = 'month'
-        upsellingIntervalName = 'Mes'
-      } else if (daysDiff <= 365) {
-        upsellingTimeInterval = 'month'
-        upsellingIntervalName = 'Mes'
+      if (interval === 'auto') {
+        // Calcular la diferencia en días para determinar el intervalo óptimo
+        const daysDiff = Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / (1000 * 60 * 60 * 24))
+        
+        if (daysDiff <= 7) {
+          upsellingTimeInterval = 'day'
+          upsellingIntervalName = 'Día'
+        } else if (daysDiff <= 31) {
+          upsellingTimeInterval = 'week'
+          upsellingIntervalName = 'Semana'
+        } else if (daysDiff <= 90) {
+          upsellingTimeInterval = 'month'
+          upsellingIntervalName = 'Mes'
+        } else if (daysDiff <= 365) {
+          upsellingTimeInterval = 'month'
+          upsellingIntervalName = 'Mes'
+        } else {
+          upsellingTimeInterval = 'quarter'
+          upsellingIntervalName = 'Trimestre'
+        }
       } else {
-        upsellingTimeInterval = 'quarter'
-        upsellingIntervalName = 'Trimestre'
+        // Usar el intervalo seleccionado por el usuario
+        // Extraer el tipo y la cantidad del intervalo (ej: day2, week3, month2)
+        const match = interval.match(/^(\w+)(\d+)$/)
+        if (match) {
+          const [, type, quantity] = match
+          const quantityNum = parseInt(quantity)
+          
+          upsellingTimeInterval = type
+          switch (type) {
+            case 'day':
+              upsellingIntervalName = quantityNum === 1 ? 'Día' : `${quantityNum} Días`
+              break
+            case 'week':
+              upsellingIntervalName = quantityNum === 1 ? 'Semana' : `${quantityNum} Semanas`
+              break
+            case 'month':
+              upsellingIntervalName = quantityNum === 1 ? 'Mes' : `${quantityNum} Meses`
+              break
+            case 'year':
+              upsellingIntervalName = quantityNum === 1 ? 'Año' : `${quantityNum} Años`
+              break
+            default:
+              upsellingTimeInterval = 'month'
+              upsellingIntervalName = 'Mes'
+          }
+        } else {
+          // Fallback para intervalos simples
+          upsellingTimeInterval = interval
+          switch (interval) {
+            case 'day':
+              upsellingIntervalName = 'Día'
+              break
+            case 'week':
+              upsellingIntervalName = 'Semana'
+              break
+            case 'month':
+              upsellingIntervalName = 'Mes'
+              break
+            case 'year':
+              upsellingIntervalName = 'Año'
+              break
+            default:
+              upsellingTimeInterval = 'month'
+              upsellingIntervalName = 'Mes'
+          }
+        }
       }
+      
+      console.log(`📊 Upselling usando intervalo: ${upsellingTimeInterval} (${upsellingIntervalName})`)
       
       // Construir la consulta según el tipo de intervalo
       let upsellingQuery: string = ''
       let upsellingQueryParams: any[] = []
+      
+      // Extraer la cantidad del intervalo si existe
+      const upsellingMatch = interval.match(/^(\w+)(\d+)$/)
+      const upsellingIntervalQuantity = upsellingMatch ? parseInt(upsellingMatch[2]) : 1
       
       if (upsellingTimeInterval === 'day') {
         upsellingQuery = `
           WITH time_intervals AS (
             SELECT 
               generate_series(
-                DATE_TRUNC('day', $1::date),
-                DATE_TRUNC('day', $2::date),
-                INTERVAL '1 day'
+                $1::date,
+                $2::date,
+                INTERVAL '${upsellingIntervalQuantity} day'
               ) AS interval_start
           ),
           upselling_counts AS (
             SELECT 
-              DATE_TRUNC('day', m.received_ts) AS interval_start,
+              m.received_ts,
               COUNT(*) FILTER (WHERE a.upselling_offer = TRUE) AS offers_sent,
               COUNT(*) FILTER (WHERE a.upselling_offer = TRUE AND a.upsell_accepted = TRUE) AS offers_accepted,
               ROUND(
@@ -784,17 +968,22 @@ export async function GET(request: NextRequest) {
             JOIN mail_message m ON a.mail_uuid = m.id
             WHERE m.received_ts BETWEEN $1 AND $2
             ${hotelFilter}
-            GROUP BY DATE_TRUNC('day', m.received_ts)
+            GROUP BY m.received_ts
         )
         SELECT
             ti.interval_start,
-            COALESCE(uc.offers_sent, 0) AS offers_sent,
-            COALESCE(uc.offers_accepted, 0) AS offers_accepted,
-            COALESCE(uc.conversion_rate, 0) AS conversion_rate,
+            COALESCE(SUM(uc.offers_sent), 0) AS offers_sent,
+            COALESCE(SUM(uc.offers_accepted), 0) AS offers_accepted,
+            ROUND(
+              (COALESCE(SUM(uc.offers_accepted), 0)::decimal / 
+               NULLIF(COALESCE(SUM(uc.offers_sent), 0), 0)) * 100, 1
+            ) AS conversion_rate,
             'day' AS interval_type,
-            'Día' AS interval_name
+            '${upsellingIntervalName}' AS interval_name
           FROM time_intervals ti
-          LEFT JOIN upselling_counts uc ON ti.interval_start = uc.interval_start
+          LEFT JOIN upselling_counts uc ON uc.received_ts >= ti.interval_start 
+            AND uc.received_ts < ti.interval_start + INTERVAL '${upsellingIntervalQuantity} day'
+          GROUP BY ti.interval_start
           ORDER BY ti.interval_start
         `
         upsellingQueryParams = getQueryParams(from, to)
@@ -805,7 +994,7 @@ export async function GET(request: NextRequest) {
               generate_series(
                 DATE_TRUNC('week', $1::date),
                 DATE_TRUNC('week', $2::date),
-                INTERVAL '1 week'
+                INTERVAL '${upsellingIntervalQuantity} week'
               ) AS interval_start
           ),
           upselling_counts AS (
@@ -814,8 +1003,8 @@ export async function GET(request: NextRequest) {
               COUNT(*) FILTER (WHERE a.upselling_offer = TRUE) AS offers_sent,
               COUNT(*) FILTER (WHERE a.upselling_offer = TRUE AND a.upsell_accepted = TRUE) AS offers_accepted,
               ROUND(
-                (COUNT(*) FILTER (WHERE a.upselling_offer = TRUE AND a.upsell_accepted = TRUE)::decimal / 
-                 NULLIF(COUNT(*) FILTER (WHERE a.upselling_offer = TRUE), 0)) * 100, 1
+                (COALESCE(SUM(uc.offers_accepted), 0)::decimal / 
+                 NULLIF(COALESCE(SUM(uc.offers_sent), 0), 0)) * 100, 1
               ) AS conversion_rate
             FROM mail_analysis a
             JOIN mail_message m ON a.mail_uuid = m.id
@@ -825,13 +1014,18 @@ export async function GET(request: NextRequest) {
           )
           SELECT 
             ti.interval_start,
-            COALESCE(uc.offers_sent, 0) AS offers_sent,
-            COALESCE(uc.offers_accepted, 0) AS offers_accepted,
-            COALESCE(uc.conversion_rate, 0) AS conversion_rate,
+            COALESCE(SUM(uc.offers_sent), 0) AS offers_sent,
+            COALESCE(SUM(uc.offers_accepted), 0) AS offers_accepted,
+            ROUND(
+              (COALESCE(SUM(uc.offers_accepted), 0)::decimal / 
+               NULLIF(COALESCE(SUM(uc.offers_sent), 0), 0)) * 100, 1
+            ) AS conversion_rate,
             'week' AS interval_type,
-            'Semana' AS interval_name
+            '${upsellingIntervalName}' AS interval_name
           FROM time_intervals ti
-          LEFT JOIN upselling_counts uc ON ti.interval_start = uc.interval_start
+          LEFT JOIN upselling_counts uc ON uc.interval_start >= ti.interval_start 
+            AND uc.interval_start < ti.interval_start + INTERVAL '${upsellingIntervalQuantity} week'
+          GROUP BY ti.interval_start
           ORDER BY ti.interval_start
         `
         upsellingQueryParams = getQueryParams(from, to)
@@ -842,7 +1036,7 @@ export async function GET(request: NextRequest) {
               generate_series(
                 DATE_TRUNC('month', $1::date),
                 DATE_TRUNC('month', $2::date),
-                INTERVAL '1 month'
+                INTERVAL '${upsellingIntervalQuantity} month'
               ) AS interval_start
           ),
           upselling_counts AS (
@@ -851,8 +1045,8 @@ export async function GET(request: NextRequest) {
               COUNT(*) FILTER (WHERE a.upselling_offer = TRUE) AS offers_sent,
               COUNT(*) FILTER (WHERE a.upselling_offer = TRUE AND a.upsell_accepted = TRUE) AS offers_accepted,
               ROUND(
-                (COUNT(*) FILTER (WHERE a.upselling_offer = TRUE AND a.upsell_accepted = TRUE)::decimal / 
-                 NULLIF(COUNT(*) FILTER (WHERE a.upselling_offer = TRUE), 0)) * 100, 1
+                (COALESCE(SUM(uc.offers_accepted), 0)::decimal / 
+                 NULLIF(COALESCE(SUM(uc.offers_sent), 0), 0)) * 100, 1
               ) AS conversion_rate
             FROM mail_analysis a
             JOIN mail_message m ON a.mail_uuid = m.id
@@ -862,50 +1056,60 @@ export async function GET(request: NextRequest) {
           )
           SELECT 
             ti.interval_start,
-            COALESCE(uc.offers_sent, 0) AS offers_sent,
-            COALESCE(uc.offers_accepted, 0) AS offers_accepted,
-            COALESCE(uc.conversion_rate, 0) AS conversion_rate,
+            COALESCE(SUM(uc.offers_sent), 0) AS offers_sent,
+            COALESCE(SUM(uc.offers_accepted), 0) AS offers_accepted,
+            ROUND(
+              (COALESCE(SUM(uc.offers_accepted), 0)::decimal / 
+               NULLIF(COALESCE(SUM(uc.offers_sent), 0), 0)) * 100, 1
+            ) AS conversion_rate,
             'month' AS interval_type,
-            'Mes' AS interval_name
+            '${upsellingIntervalName}' AS interval_name
           FROM time_intervals ti
-          LEFT JOIN upselling_counts uc ON ti.interval_start = uc.interval_start
+          LEFT JOIN upselling_counts uc ON uc.interval_start >= ti.interval_start 
+            AND uc.interval_start < ti.interval_start + INTERVAL '${upsellingIntervalQuantity} month'
+          GROUP BY ti.interval_start
           ORDER BY ti.interval_start
         `
         upsellingQueryParams = getQueryParams(from, to)
-      } else if (upsellingTimeInterval === 'quarter') {
+      } else if (upsellingTimeInterval === 'year') {
         upsellingQuery = `
           WITH time_intervals AS (
             SELECT 
               generate_series(
-                DATE_TRUNC('quarter', $1::date),
-                DATE_TRUNC('quarter', $2::date),
-                INTERVAL '3 months'
+                DATE_TRUNC('year', $1::date),
+                DATE_TRUNC('year', $2::date),
+                INTERVAL '${upsellingIntervalQuantity} year'
               ) AS interval_start
           ),
           upselling_counts AS (
             SELECT 
-              DATE_TRUNC('quarter', m.received_ts) AS interval_start,
+              DATE_TRUNC('year', m.received_ts) AS interval_start,
               COUNT(*) FILTER (WHERE a.upselling_offer = TRUE) AS offers_sent,
               COUNT(*) FILTER (WHERE a.upselling_offer = TRUE AND a.upsell_accepted = TRUE) AS offers_accepted,
               ROUND(
-                (COUNT(*) FILTER (WHERE a.upselling_offer = TRUE AND a.upsell_accepted = TRUE)::decimal / 
-                 NULLIF(COUNT(*) FILTER (WHERE a.upselling_offer = TRUE), 0)) * 100, 1
+                (COALESCE(SUM(uc.offers_accepted), 0)::decimal / 
+                 NULLIF(COALESCE(SUM(uc.offers_sent), 0), 0)) * 100, 1
               ) AS conversion_rate
             FROM mail_analysis a
             JOIN mail_message m ON a.mail_uuid = m.id
             WHERE m.received_ts BETWEEN $1 AND $2
             ${hotelFilter}
-            GROUP BY DATE_TRUNC('quarter', m.received_ts)
+            GROUP BY DATE_TRUNC('year', m.received_ts)
           )
           SELECT 
             ti.interval_start,
-            COALESCE(uc.offers_sent, 0) AS offers_sent,
-            COALESCE(uc.offers_accepted, 0) AS offers_accepted,
-            COALESCE(uc.conversion_rate, 0) AS conversion_rate,
-            'quarter' AS interval_type,
-            'Trimestre' AS interval_name
+            COALESCE(SUM(uc.offers_sent), 0) AS offers_sent,
+            COALESCE(SUM(uc.offers_accepted), 0) AS offers_accepted,
+            ROUND(
+              (COALESCE(SUM(uc.offers_accepted), 0)::decimal / 
+               NULLIF(COALESCE(SUM(uc.offers_sent), 0), 0)) * 100, 1
+            ) AS conversion_rate,
+            'year' AS interval_type,
+            '${upsellingIntervalName}' AS interval_name
           FROM time_intervals ti
-          LEFT JOIN upselling_counts uc ON ti.interval_start = uc.interval_start
+          LEFT JOIN upselling_counts uc ON uc.interval_start >= ti.interval_start 
+            AND uc.interval_start < ti.interval_start + INTERVAL '${upsellingIntervalQuantity} year'
+          GROUP BY ti.interval_start
           ORDER BY ti.interval_start
         `
         upsellingQueryParams = getQueryParams(from, to)
@@ -987,46 +1191,102 @@ export async function GET(request: NextRequest) {
     // 16. INCIDENCIAS POR INTERVALO DINÁMICO (usando los mismos intervalos que volumen)
     let incidentsByIntervalResult: any = { rows: [] }
     try {
-      // Usar la misma lógica de intervalos que se definió para volumen
-      const daysDiff = Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / (1000 * 60 * 60 * 24))
-      
+      // Usar el mismo intervalo que se definió para volumen
       let incidentsTimeInterval: string
       let incidentsIntervalName: string
       
-      if (daysDiff <= 7) {
-        incidentsTimeInterval = 'day'
-        incidentsIntervalName = 'Día'
-      } else if (daysDiff <= 31) {
-        incidentsTimeInterval = 'week'
-        incidentsIntervalName = 'Semana'
-      } else if (daysDiff <= 90) {
-        incidentsTimeInterval = 'month'
-        incidentsIntervalName = 'Mes'
-      } else if (daysDiff <= 365) {
-        incidentsTimeInterval = 'month'
-        incidentsIntervalName = 'Mes'
+      if (interval === 'auto') {
+        // Calcular la diferencia en días para determinar el intervalo óptimo
+        const daysDiff = Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / (1000 * 60 * 60 * 24))
+        
+        if (daysDiff <= 7) {
+          incidentsTimeInterval = 'day'
+          incidentsIntervalName = 'Día'
+        } else if (daysDiff <= 31) {
+          incidentsTimeInterval = 'week'
+          incidentsIntervalName = 'Semana'
+        } else if (daysDiff <= 90) {
+          incidentsTimeInterval = 'month'
+          incidentsIntervalName = 'Mes'
+        } else if (daysDiff <= 365) {
+          incidentsTimeInterval = 'month'
+          incidentsIntervalName = 'Mes'
+        } else {
+          incidentsTimeInterval = 'quarter'
+          incidentsIntervalName = 'Trimestre'
+        }
       } else {
-        incidentsTimeInterval = 'quarter'
-        incidentsIntervalName = 'Trimestre'
+        // Usar el intervalo seleccionado por el usuario
+        // Extraer el tipo y la cantidad del intervalo (ej: day2, week3, month2)
+        const match = interval.match(/^(\w+)(\d+)$/)
+        if (match) {
+          const [, type, quantity] = match
+          const quantityNum = parseInt(quantity)
+          
+          incidentsTimeInterval = type
+          switch (type) {
+            case 'day':
+              incidentsIntervalName = quantityNum === 1 ? 'Día' : `${quantityNum} Días`
+              break
+            case 'week':
+              incidentsIntervalName = quantityNum === 1 ? 'Semana' : `${quantityNum} Semanas`
+              break
+            case 'month':
+              incidentsIntervalName = quantityNum === 1 ? 'Mes' : `${quantityNum} Meses`
+              break
+            case 'year':
+              incidentsIntervalName = quantityNum === 1 ? 'Año' : `${quantityNum} Años`
+              break
+            default:
+              incidentsTimeInterval = 'month'
+              incidentsIntervalName = 'Mes'
+          }
+        } else {
+          // Fallback para intervalos simples
+          incidentsTimeInterval = interval
+          switch (interval) {
+            case 'day':
+              incidentsIntervalName = 'Día'
+              break
+            case 'week':
+              incidentsIntervalName = 'Semana'
+              break
+            case 'month':
+              incidentsIntervalName = 'Mes'
+              break
+            case 'year':
+              incidentsIntervalName = 'Año'
+              break
+            default:
+              incidentsTimeInterval = 'month'
+              incidentsIntervalName = 'Mes'
+          }
+        }
       }
+      
+      console.log(`🚨 Incidencias usando intervalo: ${incidentsTimeInterval} (${incidentsIntervalName})`)
       
       // Construir la consulta según el tipo de intervalo
       let incidentsQuery: string = ''
       let incidentsQueryParams: any[] = []
+      
+      // Extraer la cantidad del intervalo si existe
+      const incidentsMatch = interval.match(/^(\w+)(\d+)$/)
+      const incidentsIntervalQuantity = incidentsMatch ? parseInt(incidentsMatch[2]) : 1
       
       if (incidentsTimeInterval === 'day') {
         incidentsQuery = `
           WITH time_intervals AS (
         SELECT
               generate_series(
-                DATE_TRUNC('day', $1::date),
-                DATE_TRUNC('day', $2::date),
-                INTERVAL '1 day'
+                $1::date,
+                $2::date,
+                INTERVAL '${incidentsIntervalQuantity} day'
               ) AS interval_start
           ),
           incidents_counts AS (
             SELECT 
-              DATE_TRUNC('day', m.received_ts) AS interval_start,
+              m.received_ts,
           COUNT(*) AS total_incidents,
               ROUND(AVG(i.delay_gestion_min)) AS avg_management_delay,
               ROUND(AVG(i.delay_resolucion_min)) AS avg_resolution_delay
@@ -1034,17 +1294,19 @@ export async function GET(request: NextRequest) {
         JOIN mail_message m ON i.uuid = m.id
             WHERE m.received_ts BETWEEN $1 AND $2
             ${hotelFilter}
-            GROUP BY DATE_TRUNC('day', m.received_ts)
+            GROUP BY m.received_ts
           )
       SELECT 
             ti.interval_start,
-            COALESCE(ic.total_incidents, 0) AS total_incidents,
-            COALESCE(ic.avg_management_delay, 0) AS avg_management_delay,
-            COALESCE(ic.avg_resolution_delay, 0) AS avg_resolution_delay,
+            COALESCE(SUM(ic.total_incidents), 0) AS total_incidents,
+            ROUND(AVG(ic.avg_management_delay)) AS avg_management_delay,
+            ROUND(AVG(ic.avg_resolution_delay)) AS avg_resolution_delay,
             'day' AS interval_type,
-            'Día' AS interval_name
+            '${incidentsIntervalName}' AS interval_name
           FROM time_intervals ti
-          LEFT JOIN incidents_counts ic ON ti.interval_start = ic.interval_start
+          LEFT JOIN incidents_counts ic ON ic.received_ts >= ti.interval_start 
+            AND ic.received_ts < ti.interval_start + INTERVAL '${incidentsIntervalQuantity} day'
+          GROUP BY ti.interval_start
           ORDER BY ti.interval_start
         `
         incidentsQueryParams = getQueryParams(from, to)
@@ -1055,7 +1317,7 @@ export async function GET(request: NextRequest) {
               generate_series(
                 DATE_TRUNC('week', $1::date),
                 DATE_TRUNC('week', $2::date),
-                INTERVAL '1 week'
+                INTERVAL '${incidentsIntervalQuantity} week'
               ) AS interval_start
           ),
           incidents_counts AS (
@@ -1072,13 +1334,15 @@ export async function GET(request: NextRequest) {
           )
           SELECT 
             ti.interval_start,
-            COALESCE(ic.total_incidents, 0) AS total_incidents,
-            COALESCE(ic.avg_management_delay, 0) AS avg_management_delay,
-            COALESCE(ic.avg_resolution_delay, 0) AS avg_resolution_delay,
+            COALESCE(SUM(ic.total_incidents), 0) AS total_incidents,
+            ROUND(AVG(ic.avg_management_delay)) AS avg_management_delay,
+            ROUND(AVG(ic.avg_resolution_delay)) AS avg_resolution_delay,
             'week' AS interval_type,
-            'Semana' AS interval_name
+            '${incidentsIntervalName}' AS interval_name
           FROM time_intervals ti
-          LEFT JOIN incidents_counts ic ON ti.interval_start = ic.interval_start
+          LEFT JOIN incidents_counts ic ON ic.interval_start >= ti.interval_start 
+            AND ic.interval_start < ti.interval_start + INTERVAL '${incidentsIntervalQuantity} week'
+          GROUP BY ti.interval_start
           ORDER BY ti.interval_start
         `
         incidentsQueryParams = getQueryParams(from, to)
@@ -1089,7 +1353,7 @@ export async function GET(request: NextRequest) {
               generate_series(
                 DATE_TRUNC('month', $1::date),
                 DATE_TRUNC('month', $2::date),
-                INTERVAL '1 month'
+                INTERVAL '${incidentsIntervalQuantity} month'
               ) AS interval_start
           ),
           incidents_counts AS (
@@ -1106,29 +1370,31 @@ export async function GET(request: NextRequest) {
           )
           SELECT 
             ti.interval_start,
-            COALESCE(ic.total_incidents, 0) AS total_incidents,
-            COALESCE(ic.avg_management_delay, 0) AS avg_management_delay,
-            COALESCE(ic.avg_resolution_delay, 0) AS avg_resolution_delay,
+            COALESCE(SUM(ic.total_incidents), 0) AS total_incidents,
+            ROUND(AVG(ic.avg_management_delay)) AS avg_management_delay,
+            ROUND(AVG(ic.avg_resolution_delay)) AS avg_resolution_delay,
             'month' AS interval_type,
-            'Mes' AS interval_name
+            '${incidentsIntervalName}' AS interval_name
           FROM time_intervals ti
-          LEFT JOIN incidents_counts ic ON ti.interval_start = ic.interval_start
+          LEFT JOIN incidents_counts ic ON ic.interval_start >= ti.interval_start 
+            AND ic.interval_start < ti.interval_start + INTERVAL '${incidentsIntervalQuantity} month'
+          GROUP BY ti.interval_start
           ORDER BY ti.interval_start
         `
         incidentsQueryParams = getQueryParams(from, to)
-      } else if (incidentsTimeInterval === 'quarter') {
+      } else if (incidentsTimeInterval === 'year') {
         incidentsQuery = `
           WITH time_intervals AS (
             SELECT 
               generate_series(
-                DATE_TRUNC('quarter', $1::date),
-                DATE_TRUNC('quarter', $2::date),
-                INTERVAL '3 months'
+                DATE_TRUNC('year', $1::date),
+                DATE_TRUNC('year', $2::date),
+                INTERVAL '${incidentsIntervalQuantity} year'
               ) AS interval_start
           ),
           incidents_counts AS (
             SELECT 
-              DATE_TRUNC('quarter', m.received_ts) AS interval_start,
+              DATE_TRUNC('year', m.received_ts) AS interval_start,
               COUNT(*) AS total_incidents,
               ROUND(AVG(i.delay_gestion_min)) AS avg_management_delay,
               ROUND(AVG(i.delay_resolucion_min)) AS avg_resolution_delay
@@ -1136,17 +1402,19 @@ export async function GET(request: NextRequest) {
             JOIN mail_message m ON i.uuid = m.id
             WHERE m.received_ts BETWEEN $1 AND $2
             ${hotelFilter}
-            GROUP BY DATE_TRUNC('quarter', m.received_ts)
+            GROUP BY DATE_TRUNC('year', m.received_ts)
           )
           SELECT 
             ti.interval_start,
-            COALESCE(ic.total_incidents, 0) AS total_incidents,
-            COALESCE(ic.avg_management_delay, 0) AS avg_management_delay,
-            COALESCE(ic.avg_resolution_delay, 0) AS avg_resolution_delay,
-            'quarter' AS interval_type,
-            'Trimestre' AS interval_name
+            COALESCE(SUM(ic.total_incidents), 0) AS total_incidents,
+            ROUND(AVG(ic.avg_management_delay)) AS avg_management_delay,
+            ROUND(AVG(ic.avg_resolution_delay)) AS avg_resolution_delay,
+            'year' AS interval_type,
+            '${incidentsIntervalName}' AS interval_name
           FROM time_intervals ti
-          LEFT JOIN incidents_counts ic ON ti.interval_start = ic.interval_start
+          LEFT JOIN incidents_counts ic ON ic.interval_start >= ti.interval_start 
+            AND ic.interval_start < ti.interval_start + INTERVAL '${incidentsIntervalQuantity} year'
+          GROUP BY ti.interval_start
           ORDER BY ti.interval_start
         `
         incidentsQueryParams = getQueryParams(from, to)
@@ -1166,13 +1434,18 @@ export async function GET(request: NextRequest) {
       
       // Formatear el nombre según el tipo de intervalo con fechas exactas
       if (row.interval_type === 'day') {
-        displayName = new Date(row.interval_start).toLocaleDateString('es-ES', { 
-          day: '2-digit', 
-          month: '2-digit' 
-        })
+        const startDate = new Date(row.interval_start)
+        // Extraer la cantidad del intervalo del nombre (ej: "3 Días" -> 3)
+        const intervalMatch = row.interval_name.match(/(\d+)/)
+        const dayQuantity = intervalMatch ? parseInt(intervalMatch[1]) : 1
+        const endDate = new Date(startDate.getTime() + (dayQuantity - 1) * 24 * 60 * 60 * 1000)
+        displayName = `${startDate.getDate()}/${(startDate.getMonth() + 1).toString().padStart(2, '0')}-${endDate.getDate()}/${(endDate.getMonth() + 1).toString().padStart(2, '0')}`
       } else if (row.interval_type === 'week') {
         const startDate = new Date(row.interval_start)
-        const endDate = new Date(startDate.getTime() + 6 * 24 * 60 * 60 * 1000)
+        // Extraer la cantidad del intervalo del nombre (ej: "2 Semanas" -> 2)
+        const intervalMatch = row.interval_name.match(/(\d+)/)
+        const weekQuantity = intervalMatch ? parseInt(intervalMatch[1]) : 1
+        const endDate = new Date(startDate.getTime() + (weekQuantity * 7 - 1) * 24 * 60 * 60 * 1000)
         displayName = `${startDate.getDate()}/${(startDate.getMonth() + 1).toString().padStart(2, '0')}-${endDate.getDate()}/${(endDate.getMonth() + 1).toString().padStart(2, '0')}`
       } else if (row.interval_type === 'month') {
         const startDate = new Date(row.interval_start)
@@ -1180,10 +1453,9 @@ export async function GET(request: NextRequest) {
           month: 'short', 
           year: '2-digit' 
         })
-      } else if (row.interval_type === 'quarter') {
+      } else if (row.interval_type === 'year') {
         const startDate = new Date(row.interval_start)
-        const quarter = Math.floor(startDate.getMonth() / 3) + 1
-        displayName = `Q${quarter} ${startDate.getFullYear()}`
+        displayName = startDate.getFullYear().toString()
       } else {
         displayName = new Date(row.interval_start).toLocaleDateString('es-ES')
       }
@@ -1193,11 +1465,19 @@ export async function GET(request: NextRequest) {
       let endDate: string
       
       if (row.interval_type === 'day') {
-        startDate = new Date(row.interval_start).toLocaleDateString('es-ES')
-        endDate = new Date(row.interval_start).toLocaleDateString('es-ES')
+        const start = new Date(row.interval_start)
+        // Extraer la cantidad del intervalo del nombre (ej: "3 Días" -> 3)
+        const intervalMatch = row.interval_name.match(/(\d+)/)
+        const dayQuantity = intervalMatch ? parseInt(intervalMatch[1]) : 1
+        const end = new Date(start.getTime() + (dayQuantity - 1) * 24 * 60 * 60 * 1000)
+        startDate = start.toLocaleDateString('es-ES')
+        endDate = end.toLocaleDateString('es-ES')
       } else if (row.interval_type === 'week') {
         const start = new Date(row.interval_start)
-        const end = new Date(start.getTime() + 6 * 24 * 60 * 60 * 1000)
+        // Extraer la cantidad del intervalo del nombre (ej: "2 Semanas" -> 2)
+        const intervalMatch = row.interval_name.match(/(\d+)/)
+        const weekQuantity = intervalMatch ? parseInt(intervalMatch[1]) : 1
+        const end = new Date(start.getTime() + (weekQuantity * 7 - 1) * 24 * 60 * 60 * 1000)
         startDate = start.toLocaleDateString('es-ES')
         endDate = end.toLocaleDateString('es-ES')
       } else if (row.interval_type === 'month') {
@@ -1205,9 +1485,9 @@ export async function GET(request: NextRequest) {
         const end = new Date(start.getFullYear(), start.getMonth() + 1, 0)
         startDate = start.toLocaleDateString('es-ES')
         endDate = end.toLocaleDateString('es-ES')
-      } else if (row.interval_type === 'quarter') {
+      } else if (row.interval_type === 'year') {
         const start = new Date(row.interval_start)
-        const end = new Date(start.getFullYear(), start.getMonth() + 3, 0)
+        const end = new Date(start.getFullYear(), 11, 31)
         startDate = start.toLocaleDateString('es-ES')
         endDate = end.toLocaleDateString('es-ES')
       } else {
@@ -1286,54 +1566,23 @@ export async function GET(request: NextRequest) {
       },
       
       // Revenue de upselling por mes
-              upsellingRevenueByMonth: upsellingRevenueByIntervalResult.rows.map((row: any) => {
-          let displayName: string
-          
-          // Formatear el nombre según el tipo de intervalo
-          if (row.interval_type === 'day') {
-            displayName = new Date(row.interval_start).toLocaleDateString('es-ES', { 
-              day: '2-digit', 
-              month: '2-digit' 
-            })
-          } else if (row.interval_type === 'week') {
-            const startDate = new Date(row.interval_start)
-            const endDate = new Date(startDate.getTime() + 6 * 24 * 60 * 60 * 1000)
-            displayName = `${startDate.getDate()}/${(startDate.getMonth() + 1).toString().padStart(2, '0')}-${endDate.getDate()}/${(endDate.getMonth() + 1).toString().padStart(2, '0')}`
-          } else if (row.interval_type === 'month') {
-            const startDate = new Date(row.interval_start)
-            displayName = startDate.toLocaleDateString('es-ES', { 
-              month: 'short', 
-              year: '2-digit' 
-            })
-          } else if (row.interval_type === 'quarter') {
-            const startDate = new Date(row.interval_start)
-            const quarter = Math.floor(startDate.getMonth() / 3) + 1
-            displayName = `Q${quarter} ${startDate.getFullYear()}`
-          } else {
-            displayName = new Date(row.interval_start).toLocaleDateString('es-ES')
-          }
-          
-          return {
-            name: displayName,
-            value: parseFloat(row.total_revenue) || 0,
-            intervalType: row.interval_type,
-            intervalName: row.interval_name
-          }
-        }),
-
-      // Upselling por intervalo dinámico (ofertas enviadas y conversión)
-      upsellingByMonth: upsellingByIntervalResult.rows.map((row: any) => {
+      upsellingRevenueByMonth: upsellingRevenueByIntervalResult.rows.map((row: any) => {
         let displayName: string
         
         // Formatear el nombre según el tipo de intervalo
         if (row.interval_type === 'day') {
-          displayName = new Date(row.interval_start).toLocaleDateString('es-ES', { 
-            day: '2-digit', 
-            month: '2-digit' 
-          })
+          const startDate = new Date(row.interval_start)
+          // Extraer la cantidad del intervalo del nombre (ej: "3 Días" -> 3)
+          const intervalMatch = row.interval_name.match(/(\d+)/)
+          const dayQuantity = intervalMatch ? parseInt(intervalMatch[1]) : 1
+          const endDate = new Date(startDate.getTime() + (dayQuantity - 1) * 24 * 60 * 60 * 1000)
+          displayName = `${startDate.getDate()}/${(startDate.getMonth() + 1).toString().padStart(2, '0')}-${endDate.getDate()}/${(endDate.getMonth() + 1).toString().padStart(2, '0')}`
         } else if (row.interval_type === 'week') {
           const startDate = new Date(row.interval_start)
-          const endDate = new Date(startDate.getTime() + 6 * 24 * 60 * 60 * 1000)
+          // Extraer la cantidad del intervalo del nombre (ej: "2 Semanas" -> 2)
+          const intervalMatch = row.interval_name.match(/(\d+)/)
+          const weekQuantity = intervalMatch ? parseInt(intervalMatch[1]) : 1
+          const endDate = new Date(startDate.getTime() + (weekQuantity * 7 - 1) * 24 * 60 * 60 * 1000)
           displayName = `${startDate.getDate()}/${(startDate.getMonth() + 1).toString().padStart(2, '0')}-${endDate.getDate()}/${(endDate.getMonth() + 1).toString().padStart(2, '0')}`
         } else if (row.interval_type === 'month') {
           const startDate = new Date(row.interval_start)
@@ -1341,10 +1590,49 @@ export async function GET(request: NextRequest) {
             month: 'short', 
             year: '2-digit' 
           })
-        } else if (row.interval_type === 'quarter') {
+        } else if (row.interval_type === 'year') {
           const startDate = new Date(row.interval_start)
-          const quarter = Math.floor(startDate.getMonth() / 3) + 1
-          displayName = `Q${quarter} ${startDate.getFullYear()}`
+          displayName = startDate.getFullYear().toString()
+        } else {
+          displayName = new Date(row.interval_start).toLocaleDateString('es-ES')
+        }
+        
+        return {
+          name: displayName,
+          value: parseFloat(row.total_revenue) || 0,
+          intervalType: row.interval_type,
+          intervalName: row.interval_name
+        }
+      }),
+
+      // Upselling por intervalo dinámico (ofertas enviadas y conversión)
+      upsellingByMonth: upsellingByIntervalResult.rows.map((row: any) => {
+        let displayName: string
+        
+        // Formatear el nombre según el tipo de intervalo
+        if (row.interval_type === 'day') {
+          const startDate = new Date(row.interval_start)
+          // Extraer la cantidad del intervalo del nombre (ej: "3 Días" -> 3)
+          const intervalMatch = row.interval_name.match(/(\d+)/)
+          const dayQuantity = intervalMatch ? parseInt(intervalMatch[1]) : 1
+          const endDate = new Date(startDate.getTime() + (dayQuantity - 1) * 24 * 60 * 60 * 1000)
+          displayName = `${startDate.getDate()}/${(startDate.getMonth() + 1).toString().padStart(2, '0')}-${endDate.getDate()}/${(endDate.getMonth() + 1).toString().padStart(2, '0')}`
+        } else if (row.interval_type === 'week') {
+          const startDate = new Date(row.interval_start)
+          // Extraer la cantidad del intervalo del nombre (ej: "2 Semanas" -> 2)
+          const intervalMatch = row.interval_name.match(/(\d+)/)
+          const weekQuantity = intervalMatch ? parseInt(intervalMatch[1]) : 1
+          const endDate = new Date(startDate.getTime() + (weekQuantity * 7 - 1) * 24 * 60 * 60 * 1000)
+          displayName = `${startDate.getDate()}/${(startDate.getMonth() + 1).toString().padStart(2, '0')}-${endDate.getDate()}/${(endDate.getMonth() + 1).toString().padStart(2, '0')}`
+        } else if (row.interval_type === 'month') {
+          const startDate = new Date(row.interval_start)
+          displayName = startDate.toLocaleDateString('es-ES', { 
+            month: 'short', 
+            year: '2-digit' 
+          })
+        } else if (row.interval_type === 'year') {
+          const startDate = new Date(row.interval_start)
+          displayName = startDate.getFullYear().toString()
         } else {
           displayName = new Date(row.interval_start).toLocaleDateString('es-ES')
         }
@@ -1373,13 +1661,18 @@ export async function GET(request: NextRequest) {
           
           // Formatear el nombre según el tipo de intervalo
           if (row.interval_type === 'day') {
-            displayName = new Date(row.interval_start).toLocaleDateString('es-ES', { 
-              day: '2-digit', 
-              month: '2-digit' 
-            })
+            const startDate = new Date(row.interval_start)
+            // Extraer la cantidad del intervalo del nombre (ej: "3 Días" -> 3)
+            const intervalMatch = row.interval_name.match(/(\d+)/)
+            const dayQuantity = intervalMatch ? parseInt(intervalMatch[1]) : 1
+            const endDate = new Date(startDate.getTime() + (dayQuantity - 1) * 24 * 60 * 60 * 1000)
+            displayName = `${startDate.getDate()}/${(startDate.getMonth() + 1).toString().padStart(2, '0')}-${endDate.getDate()}/${(endDate.getMonth() + 1).toString().padStart(2, '0')}`
           } else if (row.interval_type === 'week') {
             const startDate = new Date(row.interval_start)
-            const endDate = new Date(startDate.getTime() + 6 * 24 * 60 * 60 * 1000)
+            // Extraer la cantidad del intervalo del nombre (ej: "2 Semanas" -> 2)
+            const intervalMatch = row.interval_name.match(/(\d+)/)
+            const weekQuantity = intervalMatch ? parseInt(intervalMatch[1]) : 1
+            const endDate = new Date(startDate.getTime() + (weekQuantity * 7 - 1) * 24 * 60 * 60 * 1000)
             displayName = `${startDate.getDate()}/${(startDate.getMonth() + 1).toString().padStart(2, '0')}-${endDate.getDate()}/${(endDate.getMonth() + 1).toString().padStart(2, '0')}`
           } else if (row.interval_type === 'month') {
             const startDate = new Date(row.interval_start)
@@ -1387,10 +1680,9 @@ export async function GET(request: NextRequest) {
               month: 'short', 
               year: '2-digit' 
             })
-          } else if (row.interval_type === 'quarter') {
+          } else if (row.interval_type === 'year') {
             const startDate = new Date(row.interval_start)
-            const quarter = Math.floor(startDate.getMonth() / 3) + 1
-            displayName = `Q${quarter} ${startDate.getFullYear()}`
+            displayName = startDate.getFullYear().toString()
           } else {
             displayName = new Date(row.interval_start).toLocaleDateString('es-ES')
           }
@@ -1414,9 +1706,20 @@ export async function GET(request: NextRequest) {
     console.log('🔍 ANÁLISIS COMPLETO DE DATOS')
     console.log('='.repeat(60))
     
-    // Información de rangos de fechas
-    console.log('📅 RANGOS DE FECHAS:')
+    // Información de rangos de fechas e intervalos
+    console.log('📅 RANGOS DE FECHAS E INTERVALOS:')
     console.log(`  • Período: ${from} a ${to}`)
+    console.log(`  • Intervalo seleccionado: ${interval}`)
+    console.log(`  • Intervalo usado: ${volumeData[0]?.intervalType || 'N/A'} (${volumeData[0]?.intervalName || 'N/A'})`)
+    
+    // Mostrar información detallada del intervalo
+    if (interval !== 'auto') {
+      const match = interval.match(/^(\w+)(\d+)$/)
+      if (match) {
+        const [, type, quantity] = match
+        console.log(`  • Tipo: ${type}, Cantidad: ${quantity}`)
+      }
+    }
     console.log('')
     
     // Datos del período actual
