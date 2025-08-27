@@ -2,14 +2,13 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { useSupabase } from '@/components/providers/SupabaseProvider'
-import { getHotelInfo } from '@/lib/hotel-config'
 
 interface HotelSelectorProps {
   className?: string
 }
 
 export default function HotelSelector({ className = '' }: HotelSelectorProps) {
-  const { hotels, selectedHotels, updateSelectedHotels } = useSupabase()
+  const { hotels, hotelsData, selectedHotels, updateSelectedHotels, session } = useSupabase()
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -45,15 +44,20 @@ export default function HotelSelector({ className = '' }: HotelSelectorProps) {
     if (selectedHotels.length === 0) return 'Sin hoteles'
     if (selectedHotels.length === hotels.length) return 'Todos los hoteles'
     if (selectedHotels.length === 1) {
-      const hotelInfo = getHotelInfo('test', selectedHotels[0]) // Asumiendo que todos los hoteles están en el grupo 'test'
-      return hotelInfo ? hotelInfo.name : selectedHotels[0]
+      // Buscar el hotel seleccionado en hotelsData para mostrar su nombre
+      const selectedHotel = hotelsData.find(hotel => hotel.id === selectedHotels[0])
+      return selectedHotel ? selectedHotel.name : selectedHotels[0]
     }
     return `${selectedHotels.length} hoteles seleccionados`
   }
 
   const getHotelDisplayName = (hotelId: string) => {
-    const hotelInfo = getHotelInfo('test', hotelId) // Asumiendo que todos los hoteles están en el grupo 'test'
-    return hotelInfo ? hotelInfo.name : hotelId
+    // Buscar el hotel en hotelsData para mostrar su información completa
+    const hotel = hotelsData.find(h => h.id === hotelId)
+    if (hotel) {
+      return hotel.name
+    }
+    return hotelId // Fallback al ID si no se encuentra
   }
 
   return (
@@ -94,7 +98,6 @@ export default function HotelSelector({ className = '' }: HotelSelectorProps) {
             
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {hotels.map((hotelId) => {
-                const hotelInfo = getHotelInfo('test', hotelId)
                 const isSelected = selectedHotels.includes(hotelId)
                 
                 return (
@@ -109,11 +112,24 @@ export default function HotelSelector({ className = '' }: HotelSelectorProps) {
                       <div className="text-sm font-medium text-gray-900">
                         {getHotelDisplayName(hotelId)}
                       </div>
-                      {hotelInfo && (
-                        <div className="text-xs text-gray-500">
-                          {hotelInfo.stars}⭐ • {hotelInfo.rooms} habitaciones • {hotelInfo.location}
-                        </div>
-                      )}
+                      <div className="text-xs text-gray-500 space-y-1">
+                        {(() => {
+                          const hotel = hotelsData.find(h => h.id === hotelId)
+                          if (hotel) {
+                            return (
+                              <>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-yellow-500">{"★".repeat(hotel.stars)}</span>
+                                  <span>{hotel.stars} estrellas</span>
+                                </div>
+                                <div>{hotel.location}</div>
+                                <div>{hotel.rooms} habitaciones</div>
+                              </>
+                            )
+                          }
+                          return <div>Hotel ID: {hotelId}</div>
+                        })()}
+                      </div>
                     </div>
                   </label>
                 )

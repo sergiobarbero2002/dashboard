@@ -19,7 +19,7 @@ export default function LoginPage() {
   const [success, setSuccess] = useState(false)
   const [isDemo, setIsDemo] = useState(false)
   
-  const { signIn } = useSupabase()
+  const { signInWithPassword } = useSupabase()
   const router = useRouter()
   const { playClick, playSuccess } = useSound()
   const { toasts, removeToast, showSuccess, showError } = useToast()
@@ -34,7 +34,7 @@ export default function LoginPage() {
     setIsDemo(false)
 
     try {
-      await signIn(email, password)
+      await signInWithPassword({ email, password })
       
       // Mostrar mensaje de éxito
       setSuccess(true)
@@ -79,7 +79,7 @@ export default function LoginPage() {
     setIsDemo(true)
 
     try {
-      await signIn('demo@smarthotels.es', 'demo123')
+      await signInWithPassword({ email: 'demo@smarthotels.es', password: 'demo123' })
       setSuccess(true)
       showSuccess('¡Demo iniciada correctamente!')
       playSuccess()

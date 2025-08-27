@@ -1,417 +1,875 @@
-# 🏨 SmartHotels Dashboard - Sistema de Gestión Inteligente para Hoteles
+# 🏨 SmartHotels Dashboard - Sistema de Seguridad y Arquitectura
 
-## 📋 Descripción General
+## 📋 Tabla de Contenidos
 
-SmartHotels Dashboard es una aplicación web desarrollada en **Next.js 14** que conecta las bases de datos de directivos hoteleros con información sobre sus emails y las respuestas automatizadas con recomendaciones de cross-selling personalizadas que escribe una IA.
+1. [Descripción General](#-descripción-general)
+2. [Arquitectura del Sistema](#-arquitectura-del-sistema)
+3. [Flujo de Seguridad Completo](#-flujo-de-seguridad-completo)
+4. [Variables de Entorno](#-variables-de-entorno)
+5. [Backend - API Routes](#-backend---api-routes)
+6. [Frontend - Hooks y Componentes](#-frontend---hooks-y-componentes)
+7. [Base de Datos](#-base-de-datos)
+8. [Configuración de Usuarios y Hoteles](#-configuración-de-usuarios-y-hoteles)
+9. [Instalación y Configuración](#-instalación-y-configuración)
+10. [Troubleshooting](#-troubleshooting)
 
-El sistema permite a cada hotel tener su propio dashboard personalizado con métricas en tiempo real sobre el rendimiento de su sistema de emails automatizados, incluyendo análisis de sentimiento, oportunidades de upselling, gestión de incidencias y cálculo de ahorros operativos.
+---
+
+## 🎯 Descripción General
+
+SmartHotels Dashboard es una aplicación web que permite a usuarios autenticados acceder a datos de hoteles específicos de forma segura. El sistema implementa una arquitectura de **seguridad por capas** donde:
+
+- **Frontend**: Solo tiene acceso a datos de negocio seguros
+- **Backend**: Maneja toda la lógica sensible y credenciales
+- **Base de Datos**: Cada usuario accede solo a sus hoteles asignados
+
+---
 
 ## 🏗️ Arquitectura del Sistema
 
-### Estructura de Archivos y Directorios
-
 ```
-Smarthotels-dashboard/
-├── app/                          # App Router de Next.js 14
-│   ├── api/                      # API Routes del backend
-│   │   └── ops/                  # Endpoint principal para datos operativos
-│   │       └── route.ts          # API que consulta las BBDD de hoteles
-│   ├── globals.css               # Estilos globales con Tailwind CSS
-│   ├── layout.tsx                # Layout principal con SupabaseProvider
-│   ├── login/                    # Página de autenticación
-│   │   └── page.tsx              # Formulario de login con validación
-│   └── page.tsx                  # Dashboard principal (página home)
-├── components/                    # Componentes React reutilizables
-│   ├── dashboard/                 # Componentes específicos del dashboard
-│   │   ├── BarChart.tsx          # Gráfico de barras para métricas
-│   │   ├── ChartCard.tsx         # Contenedor para gráficos
-│   │   ├── DashboardSkeleton.tsx # Skeleton loading del dashboard
-│   │   ├── DonutChart.tsx        # Gráfico circular para distribuciones
-│   │   ├── DynamicBarChart.tsx   # Gráfico de barras dinámico
-│   │   ├── FilterBar.tsx         # Barra de filtros de fechas
-│   │   ├── Header.tsx            # Header principal del dashboard
-│   │   ├── HeaderControls.tsx    # Controles del header
-│   │   ├── KpiCard.tsx           # Tarjeta de métrica KPI
-│   │   ├── LineChart.tsx         # Gráfico de líneas para tendencias
-│   │   ├── ProfileMenu.tsx       # Menú de perfil del usuario
-│   │   ├── QuickStatsCard.tsx    # Tarjeta de estadísticas rápidas
-│   │   └── SavingsPanel.tsx      # Panel de cálculo de ahorros
-│   ├── providers/                 # Proveedores de contexto
-│   │   └── SupabaseProvider.tsx  # Contexto de autenticación Supabase
-│   └── ui/                       # Componentes de UI base
-│       ├── Button.tsx            # Botón reutilizable
-│       ├── DateRangePicker.tsx   # Selector de rangos de fechas
-│       ├── ParticlesBackground.tsx # Fondo animado de partículas
-│       ├── ProfileImage.tsx      # Imagen de perfil del usuario
-│       └── Toast.tsx             # Sistema de notificaciones
-├── config/                        # Configuraciones del sistema
-│   ├── hotels.json               # Configuración de conexiones a BBDD de hoteles
-│   └── users.json                # Configuración de usuarios y permisos
-├── hooks/                         # Custom hooks de React
-│   ├── useClientTime.ts          # Hook para manejo de tiempo del cliente
-│   ├── useRealDashboardData.ts   # Hook principal para datos del dashboard
-│   ├── useSound.ts               # Hook para efectos de sonido
-│   └── useToast.ts               # Hook para sistema de notificaciones
-├── lib/                           # Utilidades y configuraciones
-│   ├── chart-colors.ts           # Configuración de colores para gráficos
-│   ├── database.ts               # Configuración de conexiones PostgreSQL
-│   ├── date-utils.ts             # Utilidades para manejo de fechas
-│   ├── hotel-config.ts           # Configuración de hoteles
-│   ├── image-utils.ts            # Utilidades para manejo de imágenes
-│   ├── supabase-admin.ts         # Cliente Supabase para operaciones admin
-│   ├── supabase-simple.ts        # Cliente Supabase para operaciones cliente
-│   ├── supabase.ts               # Configuración base de Supabase
-│   ├── user-config.ts            # Configuración de usuarios
-│   └── utils.ts                  # Utilidades generales
-├── public/                        # Archivos estáticos
-│   └── assets/                   # Recursos multimedia
-│       ├── FX/                   # Efectos de sonido
-│       ├── images/                # Imágenes del sistema
-│       └── profiles/              # Imágenes de perfil de usuarios
-├── package.json                   # Dependencias y scripts
-├── tailwind.config.js            # Configuración de Tailwind CSS
-├── tsconfig.json                 # Configuración de TypeScript
-└── next.config.js                # Configuración de Next.js
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   FRONTEND      │    │    BACKEND      │    │   BASE DE       │
+│   (Cliente)     │◄──►│   (Servidor)    │◄──►│   DATOS         │
+│                 │    │                 │    │                 │
+│ • React/Next.js │    │ • API Routes    │    │ • PostgreSQL    │
+│ • Hooks         │    │ • Middleware    │    │ • Supabase      │
+│ • Componentes   │    │ • Config        │    │ • Multi-tenant  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-## 🔐 Sistema de Autenticación y Usuarios
+### **Principios de Seguridad:**
 
-### Flujo de Autenticación
+1. **Separación de Responsabilidades**: Frontend nunca ve credenciales
+2. **Autenticación por Token**: JWT tokens para identificación
+3. **Configuración Dinámica**: Usuarios se asignan a bases de datos específicas
+4. **Filtrado de Datos**: Cada usuario solo ve sus hoteles asignados
 
-1. **Configuración de Usuarios**: Cada directivo hotelero se configura en `config/users.json` con:
-   - Email y contraseña (generados en Supabase Auth)
-   - ID del hotel asociado
-   - Rol y permisos
-   - Imagen de perfil
+---
 
-2. **Configuración de Hoteles**: Cada hotel se configura en `config/hotels.json` con:
-   - Credenciales de Supabase
-   - Configuración de PostgreSQL
-   - Parámetros de conexión
+## 🔐 Flujo de Seguridad Completo
 
-3. **Proceso de Login**:
-   - Usuario ingresa email/contraseña en `/login`
-   - Supabase valida las credenciales
-   - Se obtiene el `hotel_id` del usuario
-   - Se redirige al dashboard principal
+### **PASO 1: Autenticación del Usuario**
 
-### Estructura de Usuarios
+```typescript
+// Frontend: app/login/page.tsx
+const { data, error } = await supabase.auth.signInWithPassword({
+  email: 'demo@smarthotels.es',
+  password: 'demo123456'
+})
 
-```json
-{
-  "users": {
-    "admin@hotel-madrid.es": {
-      "id": "madrid_admin",
-      "name": "Admin Madrid",
-      "full_name": "Administrador Hotel Madrid",
-      "hotel_id": "madrid",
-      "role": "admin",
-      "status": "active",
-      "profileImage": "madrid_admin.png"
-    }
+// Resultado: Usuario autenticado con access_token
+// El frontend NO tiene acceso a variables de entorno sensibles
+```
+
+**¿Qué sucede?**
+- Usuario se autentica usando credenciales públicas de Supabase
+- Se obtiene un `access_token` que identifica al usuario
+- Solo se usan variables `NEXT_PUBLIC_*` (seguras para el cliente)
+
+### **PASO 2: Frontend Solicita Datos al Backend**
+
+```typescript
+// Frontend: hooks/useRealDashboardData.ts
+const response = await fetch(`/api/ops?from=${fromDate}&to=${toDate}`, {
+  headers: {
+    'Authorization': `Bearer ${session.access_token}`, // Token del usuario
+    'Content-Type': 'application/json'
   }
+})
+```
+
+**¿Qué sucede?**
+- Frontend envía el token de autenticación
+- NO sabe qué base de datos usar ni qué hoteles tiene asignados
+- Solo pide datos genéricos al backend
+
+### **PASO 3: Backend Verifica la Autenticación**
+
+```typescript
+// Backend: app/api/ops/route.ts
+export async function GET(request: NextRequest) {
+  // 1. Extraer token del header de autorización
+  const authHeader = request.headers.get('authorization')
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  
+  const token = authHeader.substring(7)
+  
+  // 2. Verificar token usando Supabase Admin (SOLO EN SERVIDOR)
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+  
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+  }
+  
+  // 3. Obtener información del usuario autenticado
+  const userEmail = user.email // 'sergio@smarthotels.es'
+  const tenantId = user.user_metadata?.tenant_id || 'test'
 }
 ```
 
-### Estructura de Hoteles
+**¿Qué sucede?**
+- Backend usa `SUPABASE_AUTH_SERVICE_ROLE_KEY` (variable privada del servidor)
+- Verifica que el token sea válido y no haya expirado
+- Obtiene la identidad completa del usuario autenticado
 
-```json
-{
-  "hotels": {
-    "madrid": {
-      "name": "Hotel Madrid",
-      "supabase": {
-        "url": "https://hotel-madrid.supabase.co",
-        "anon_key": "CLAVE_ANONIMA"
+### **PASO 4: Backend Obtiene Configuración del Usuario**
+
+```typescript
+// Backend: lib/env-config.ts (SOLO SE EJECUTA EN SERVIDOR)
+export async function getUserConfigFromServer(email: string): Promise<UserConfig | null> {
+  // VALIDACIÓN DE SEGURIDAD: Solo ejecutar en servidor
+  if (typeof window !== 'undefined') {
+    throw new Error('getUserConfigFromServer solo puede ejecutarse en el servidor')
+  }
+
+  try {
+    // Configuración hardcodeada (en producción sería desde BD o variables de entorno)
+    const users: Record<string, UserConfig> = {
+      'sergio@smarthotels.es': {
+        id: 'sergio',
+        name: 'Sergio',
+        full_name: 'Sergio Barbero García',
+        hotel_group: 'test',        // Grupo de hoteles asignado
+        hotels: ['demo1', 'demo2', 'demo3'], // Hoteles específicos
+        role: 'admin',
+        status: 'active',
+        profileImage: 'sergio.png'
       },
-      "postgres": {
-        "host": "hotel-madrid.tuempresa.com",
-        "port": 5432,
-        "database": "postgres",
-        "user": "postgres",
-        "password": "password-madrid-123",
-        "ssl": false
+      'demo@smarthotels.es': {
+        id: 'demo',
+        name: 'Usuario Demo',
+        full_name: 'Usuario Demo',
+        hotel_group: 'test',
+        hotels: ['demo1', 'demo2', 'demo3'],
+        role: 'admin',
+        status: 'active',
+        profileImage: 'demo.png'
       }
     }
+
+    return users[email] || null
+  } catch (error) {
+    console.error('Error getting user config:', error)
+    return null
   }
 }
 ```
 
-## 🗄️ Base de Datos y API
+**¿Qué sucede?**
+- Backend accede a la configuración del usuario autenticado
+- **NUNCA** se envía esta información al frontend
+- Solo se usa internamente para determinar qué base de datos consultar
 
-### Conexión Multi-Tenant
+### **PASO 5: Backend Obtiene Credenciales de la Base de Datos**
 
-El sistema utiliza una arquitectura **multi-tenant** donde cada hotel tiene su propia base de datos PostgreSQL:
+```typescript
+// Backend: lib/env-config.ts (SOLO EN SERVIDOR)
+export async function getHotelGroupConfigFromServer(hotelGroupId: string): Promise<HotelGroupConfig | null> {
+  // VALIDACIÓN DE SEGURIDAD: Solo ejecutar en servidor
+  if (typeof window !== 'undefined') {
+    throw new Error('getHotelGroupConfigFromServer solo puede ejecutarse en el servidor')
+  }
 
-- **`lib/database.ts`**: Maneja conexiones dinámicas a PostgreSQL
-- **`lib/hotel-config.ts`**: Obtiene configuración específica del hotel
-- **`lib/user-config.ts`**: Gestiona configuración de usuarios
+  try {
+    // Configuración hardcodeada (en producción sería desde variables de entorno)
+    const hotelGroups: Record<string, HotelGroupConfig> = {
+      'test': {
+        id: ['demo1', 'demo2', 'demo3'],
+        name: 'Mi VPS Principal',
+        supabase: {
+          url: 'https://reqfyvseikyjztmnqjdt.supabase.co',
+          anon_key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' // Clave pública
+        },
+        postgres: {
+          host: 'aws-0-eu-west-3.pooler.supabase.com',
+          port: 6543,
+          database: 'postgres',
+          user: 'postgres.reqfyvseikyjztmnqjdt',
+          password: 'Mclaren123321!', // ¡CREDENCIAL SENSIBLE!
+          ssl: true
+        }
+      }
+    }
 
-### API Principal (`/api/ops`)
-
-El endpoint principal `/api/ops` consulta la base de datos del hotel del usuario autenticado:
-
-1. **Autenticación**: Valida el token JWT de Supabase
-2. **Identificación del Hotel**: Obtiene el `hotel_id` del usuario
-3. **Consultas SQL**: Ejecuta queries específicos del hotel
-4. **Procesamiento de Datos**: Transforma resultados en formato para el frontend
-
-### Estructura de Datos de la API
-
-La API devuelve un objeto completo con:
-
-- **KPIs Principales**: Total emails, tiempo respuesta, SLA, upselling revenue
-- **Datos de Gráficos**: Volumen, sentimiento, idiomas, categorías
-- **Métricas de Upselling**: Ofertas enviadas, conversiones, revenue
-- **Gestión de Incidencias**: Total, tiempos de gestión, categorías
-
-## 📊 Dashboard y Visualización
-
-### Componentes Principales
-
-1. **`app/page.tsx`**: Dashboard principal que integra todos los componentes
-2. **`hooks/useRealDashboardData.ts`**: Hook que gestiona la obtención y procesamiento de datos
-3. **Componentes de Gráficos**: BarChart, LineChart, DonutChart para diferentes visualizaciones
-
-### Secciones del Dashboard
-
-1. **Resumen General**: KPIs principales con variaciones porcentuales
-2. **Customer Experience**: Análisis de sentimiento, idiomas, categorías
-3. **Rendimiento IA**: Volumen automático vs manual, distribución SLA
-4. **Upselling**: Ofertas enviadas, conversiones, revenue generado
-5. **Gestión de Incidencias**: Estadísticas y evolución temporal
-
-### Sistema de Fechas Inteligente
-
-El dashboard implementa un sistema de intervalos dinámicos que se adapta al rango de fechas seleccionado:
-
-- **≤ 7 días**: Intervalos de 1 día
-- **≤ 31 días**: Intervalos de 1 semana  
-- **≤ 90 días**: Intervalos de 1 mes
-- **≤ 365 días**: Intervalos de 1 mes
-- **> 365 días**: Intervalos de 1 trimestre
-
-## 🎨 Interfaz de Usuario
-
-### Tecnologías de UI
-
-- **Tailwind CSS**: Framework de utilidades para estilos
-- **Recharts**: Biblioteca de gráficos para React
-- **Lucide React**: Iconos modernos y consistentes
-- **Particles Background**: Fondo animado con partículas doradas
-
-### Características de UX
-
-- **Responsive Design**: Adaptable a todos los dispositivos
-- **Skeleton Loading**: Estados de carga elegantes
-- **Efectos de Sonido**: Feedback auditivo para interacciones
-- **Sistema de Notificaciones**: Toast notifications para feedback
-- **Temas de Color**: Paleta personalizada con colores de marca
-
-### Componentes Reutilizables
-
-- **KpiCard**: Tarjetas de métricas con variaciones
-- **ChartCard**: Contenedores para gráficos con títulos y subtítulos
-- **Button**: Botones con variantes y estados
-- **DateRangePicker**: Selector de rangos de fechas personalizable
-
-## 🔧 Configuración y Despliegue
-
-### Dependencias Principales
-
-```json
-{
-  "dependencies": {
-    "@supabase/ssr": "^0.0.10",
-    "@supabase/supabase-js": "^2.38.4",
-    "next": "14.0.4",
-    "pg": "^8.11.3",
-    "react": "^18",
-    "recharts": "^2.8.0",
-    "swr": "^2.2.4"
+    return hotelGroups[hotelGroupId] || null
+  } catch (error) {
+    console.error('Error getting hotel group config:', error)
+    return null
   }
 }
 ```
 
-### Variables de Entorno
+**¿Qué sucede?**
+- Backend obtiene credenciales de la base de datos específica del usuario
+- **NUNCA** se envían estas credenciales al frontend
+- Solo se usan para establecer conexión a la base de datos correcta
 
-El sistema requiere configuración de:
+### **PASO 6: Backend Se Conecta a la Base de Datos Correcta**
 
-- **Supabase**: URL y claves de API
-- **PostgreSQL**: Credenciales de cada hotel
-- **Autenticación**: Configuración de usuarios y roles
+```typescript
+// Backend: lib/database.ts (SOLO EN SERVIDOR)
+export async function getHotelConnection(hotelGroupId: string): Promise<PoolClient | null> {
+  try {
+    // 1. Obtener configuración de BD (con credenciales sensibles)
+    const dbConfig = await getHotelDatabaseConfig(hotelGroupId)
+    if (!dbConfig) {
+      console.error(`No database config found for hotel group: ${hotelGroupId}`)
+      return null
+    }
 
-### Scripts Disponibles
+    // 2. Crear pool de conexiones usando credenciales sensibles
+    const pool = new Pool({
+      host: dbConfig.host,
+      port: dbConfig.port,
+      database: dbConfig.database,
+      user: dbConfig.user,
+      password: dbConfig.password, // Credencial sensible
+      ssl: dbConfig.ssl ? { rejectUnauthorized: false } : false,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    })
+
+    // 3. Obtener conexión del pool
+    const client = await pool.connect()
+    return client
+  } catch (error) {
+    console.error('Error connecting to database:', error)
+    return null
+  }
+}
+
+// Función principal para ejecutar consultas
+export async function query(hotelGroupId: string, text: string, params?: any[]): Promise<any> {
+  const client = await getHotelConnection(hotelGroupId)
+  if (!client) {
+    throw new Error(`Could not connect to database for hotel group: ${hotelGroupId}`)
+  }
+
+  try {
+    // Ejecutar consulta en la BD específica del usuario
+    const result = await client.query(text, params)
+    return result
+  } finally {
+    // Liberar conexión
+    client.release()
+  }
+}
+```
+
+**¿Qué sucede?**
+- Se establece conexión a la base de datos específica del usuario
+- Se usan credenciales que el frontend nunca ve
+- Se ejecutan consultas filtradas por los hoteles del usuario
+
+### **PASO 7: Backend Ejecuta Consultas Filtradas**
+
+```typescript
+// Backend: app/api/ops/route.ts
+// Ejemplo de consulta filtrada por hoteles del usuario
+const debugResult = await query(tenantId, `
+  SELECT 
+    COUNT(*) as total_messages,
+    COUNT(DISTINCT hotel_id) as unique_hotels,
+    MIN(received_ts) as earliest_date,
+    MAX(received_ts) as latest_date,
+    array_agg(DISTINCT hotel_id) as available_hotels
+  FROM mail_message m
+  WHERE m.received_ts BETWEEN $1 AND $2
+    ${hotelFilter} -- Filtro dinámico por hoteles del usuario
+`, [from, to])
+
+// hotelFilter se construye dinámicamente:
+// AND m.hotel_id = ANY($3) donde $3 = ['demo1', 'demo2', 'demo3']
+```
+
+**¿Qué sucede?**
+- Se ejecutan consultas SQL en la base de datos del usuario
+- Los datos se filtran automáticamente por los hoteles asignados
+- El usuario solo ve datos de sus hoteles, no de toda la base de datos
+
+### **PASO 8: Backend Devuelve Solo Datos Seguros**
+
+```typescript
+// Backend: app/api/ops/route.ts
+const data = {
+  // KPIs principales (solo datos de negocio)
+  totalEmails: emailsResult.rows.length > 0 ? parseInt(emailsResult.rows[0]?.total_emails || 0) : null,
+  emailsManual: emailsResult.rows.length > 0 ? parseInt(emailsResult.rows[0]?.emails_manual || 0) : null,
+  avgResponseTime: avgResponseTimeResult.rows.length > 0 ? postgresIntervalToMinutes(avgResponseTimeResult.rows[0]?.avg_response_interval) : null,
+  sla10min: sla10minResult.rows.length > 0 ? parseFloat(sla10minResult.rows[0]?.sla_10min_pct || 0) : null,
+  upsellingRevenue: upsellingRevenueResult.rows.length > 0 ? parseFloat(upsellingRevenueResult.rows[0]?.total_revenue || 0) : null,
+  
+  // Datos para gráficas (solo datos de negocio)
+  volume: volumeData,
+  manual: manualData,
+  slaTram: slaTramData,
+  sentiment: sentimentData,
+  language: languageData,
+  category: categoryData,
+  
+  // ¡NUNCA se incluyen credenciales ni configuración sensible!
+}
+
+return NextResponse.json(data)
+```
+
+**¿Qué sucede?**
+- Se devuelven SOLO los datos de negocio procesados
+- **NUNCA** se envían credenciales, configuración o información sensible
+- Los datos están filtrados por los hoteles del usuario autenticado
+
+### **PASO 9: Frontend Recibe y Procesa los Datos**
+
+```typescript
+// Frontend: hooks/useRealDashboardData.ts
+const apiData = await response.json()
+
+// Procesar datos para gráficos
+const processedData = processChartData(apiData, previousApiData, range, savingsParams)
+
+// Establecer en el estado del componente
+setData(processedData)
+setError(null)
+```
+
+**¿Qué sucede?**
+- Frontend recibe solo datos seguros de negocio
+- No tiene acceso a credenciales ni configuración interna
+- Procesa los datos para generar gráficos y visualizaciones
+
+---
+
+## 🔧 Variables de Entorno
+
+### **Variables Públicas (Seguras para el Cliente)**
 
 ```bash
-npm run dev          # Desarrollo local
-npm run build        # Build de producción
-npm run start        # Servidor de producción
-npm run lint         # Verificación de código
-npm run lint:fix     # Corrección automática de linting
-npm run format       # Formateo de código con Prettier
-npm run setup        # Instalación y configuración inicial
+# .env.local
+NEXT_PUBLIC_SUPABASE_AUTH_URL=https://reqfyvseikyjztmnqjdt.supabase.co
+NEXT_PUBLIC_SUPABASE_AUTH_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
-## 🚀 Flujo de Funcionamiento
+**¿Por qué son seguras?**
+- Se usan solo para autenticación básica
+- No dan acceso a datos sensibles
+- Se pueden ver en el código del cliente
 
-### 1. Inicialización del Sistema
+### **Variables Privadas (Solo Servidor)**
 
-1. Usuario accede a la aplicación
-2. Se carga el `SupabaseProvider` en el layout
-3. Se verifica el estado de autenticación
-4. Si no hay sesión, se redirige a `/login`
-
-### 2. Proceso de Autenticación
-
-1. Usuario ingresa credenciales en `/login`
-2. Supabase valida email/contraseña
-3. Se obtiene el `hotel_id` del usuario
-4. Se redirige al dashboard principal
-
-### 3. Carga del Dashboard
-
-1. Se ejecuta `useRealDashboardData` hook
-2. Se obtiene el rango de fechas por defecto
-3. Se hace llamada a `/api/ops` con parámetros
-4. Se procesan y transforman los datos
-5. Se renderizan los componentes con datos reales
-
-### 4. Consultas a Base de Datos
-
-1. API recibe request con token de autenticación
-2. Se valida el token y se obtiene el usuario
-3. Se identifica el hotel del usuario
-4. Se establece conexión a PostgreSQL del hotel
-5. Se ejecutan queries SQL específicas
-6. Se procesan y formatean los resultados
-7. Se devuelven datos al frontend
-
-### 5. Actualización en Tiempo Real
-
-1. Usuario puede cambiar rangos de fechas
-2. Se recalculan métricas y comparaciones
-3. Se actualizan gráficos y KPIs
-4. Se mantiene estado de loading y errores
-
-## 🔒 Seguridad y Autenticación
-
-### Capas de Seguridad
-
-1. **Autenticación Supabase**: JWT tokens seguros
-2. **Validación de Usuario**: Verificación de permisos por hotel
-3. **Conexiones de BD**: Credenciales específicas por hotel
-4. **API Protection**: Middleware de autenticación en endpoints
-
-### Gestión de Sesiones
-
-- Tokens JWT con expiración automática
-- Refresh automático de sesiones
-- Logout seguro con limpieza de estado
-- Protección de rutas por autenticación
-
-## 📈 Métricas y KPIs
-
-### Indicadores Principales
-
-1. **Volumen de Emails**: Total procesados en el período
-2. **Tiempo de Respuesta**: Promedio de respuesta automática
-3. **SLA 10min**: Porcentaje de emails respondidos en <10 minutos
-4. **Upselling Revenue**: Ingresos generados por cross-selling
-5. **Ahorro en Personal**: Cálculo de costes ahorrados por automatización
-6. **Intervención Manual**: Porcentaje de emails que requieren supervisión
-
-### Análisis de Sentimiento
-
-- Clasificación automática de emails por sentimiento
-- Distribución por categorías emocionales
-- Seguimiento de tendencias temporales
-
-### Gestión de Incidencias
-
-- Total de incidencias por período
-- Tiempos de gestión y resolución
-- Categorización por tipo de problema
-- Métricas de satisfacción del cliente
-
-## 🎯 Características Avanzadas
-
-### Sistema de Sonidos
-
-- Efectos de sonido para interacciones
-- Sonido de éxito al cargar datos
-- Feedback auditivo para mejor UX
-
-### Fondo de Partículas
-
-- Animación de partículas doradas
-- Efecto visual atractivo
-- Configuración personalizable
-
-### Cálculo de Ahorros
-
-- Configuración de parámetros por hotel
-- Cálculo en tiempo real de ahorros
-- Métricas de ROI de la automatización
-
-### Filtros Dinámicos
-
-- Selección de rangos de fechas
-- Comparación automática con períodos anteriores
-- Cálculo de variaciones porcentuales
-
-## 🔄 Flujo de Datos Completo
-
-```
-Usuario → Login → Supabase Auth → Dashboard → useRealDashboardData → API /api/ops → 
-PostgreSQL Hotel → Procesamiento → Transformación → Componentes React → Gráficos y KPIs
+```bash
+# .env.local (NO se envían al cliente)
+SUPABASE_AUTH_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+HOTEL_GROUP_TEST_POSTGRES_PASSWORD=Mclaren123321!
+HOTEL_GROUP_TEST_POSTGRES_USER=postgres.reqfyvseikyjztmnqjdt
 ```
 
-## 📝 Notas de Desarrollo
-
-### Estructura de Datos
-
-- **TypeScript**: Tipado completo para mejor mantenibilidad
-- **Interfaces**: Definiciones claras de estructuras de datos
-- **Error Handling**: Manejo robusto de errores en todas las capas
-
-### Performance
-
-- **SWR**: Caching inteligente de datos
-- **Lazy Loading**: Carga diferida de componentes pesados
-- **Optimización de Queries**: Consultas SQL optimizadas por hotel
-
-### Escalabilidad
-
-- **Multi-tenant**: Soporte para múltiples hoteles
-- **Configuración Dinámica**: Hoteles se añaden sin modificar código
-- **Separación de Datos**: Cada hotel tiene su propia base de datos
-
-## 🚀 Próximos Pasos y Mejoras
-
-### Funcionalidades Planificadas
-
-1. **Dashboard en Tiempo Real**: WebSockets para actualizaciones live
-2. **Exportación de Datos**: PDF y Excel reports
-3. **Alertas Automáticas**: Notificaciones por email/SMS
-4. **Móvil App**: Aplicación nativa para iOS/Android
-5. **Integración con PMS**: Conexión directa con sistemas de gestión hotelera
-
-### Optimizaciones Técnicas
-
-1. **Caching Avanzado**: Redis para datos frecuentemente consultados
-2. **CDN**: Distribución global de assets estáticos
-3. **Monitoring**: APM y logging avanzado
-4. **Testing**: Suite completa de tests automatizados
+**¿Por qué son privadas?**
+- Dan acceso completo a la base de datos
+- Contienen credenciales sensibles
+- Solo se ejecutan en el servidor
 
 ---
 
-## 📞 Soporte y Contacto
+## 🚀 Backend - API Routes
 
-- **Email**: contact@smarthotels.es
-- **Documentación**: Este README y comentarios en código
-- **Issues**: Sistema de tickets para reportar problemas
+### **Estructura de Archivos**
+
+```
+app/
+├── api/
+│   ├── ops/
+│   │   └── route.ts          # API principal para datos del dashboard
+│   ├── user-config/
+│   │   └── route.ts          # API para configuración del usuario
+│   └── hotel-info/
+│       └── route.ts          # API para información de hoteles
+```
+
+### **API Principal: `/api/ops`**
+
+```typescript
+// app/api/ops/route.ts
+export async function GET(request: NextRequest) {
+  try {
+    // 1. AUTENTICACIÓN
+    const { user, tenantId } = await authenticateUser(request)
+    
+    // 2. OBTENER CONFIGURACIÓN
+    const userConfig = await getUserConfigFromServer(user.email)
+    const hotelGroupConfig = await getHotelGroupConfigFromServer(userConfig.hotel_group)
+    
+    // 3. EJECUTAR CONSULTAS
+    const emailsResult = await query(tenantId, `
+      SELECT COUNT(*) as total_emails
+      FROM mail_message m
+      WHERE m.received_ts BETWEEN $1 AND $2
+        AND m.hotel_id = ANY($3)
+    `, [from, to, userConfig.hotels])
+    
+    // 4. DEVOLVER DATOS SEGUROS
+    return NextResponse.json({
+      totalEmails: emailsResult.rows[0]?.total_emails || 0,
+      // ... más datos
+    })
+    
+  } catch (error) {
+    console.error('Error en API:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+```
+
+### **Middleware de Autenticación**
+
+```typescript
+// lib/auth-middleware.ts
+export async function authenticateUser(request: NextRequest) {
+  const authHeader = request.headers.get('authorization')
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new Error('Unauthorized')
+  }
+  
+  const token = authHeader.substring(7)
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
+  
+  if (error || !user) {
+    throw new Error('Invalid token')
+  }
+  
+  return { user, tenantId: user.user_metadata?.tenant_id || 'test' }
+}
+```
 
 ---
 
-*SmartHotels Dashboard - Transformando la gestión hotelera con IA y automatización inteligente* 🏨✨
+## 🎨 Frontend - Hooks y Componentes
+
+### **Hook Principal: `useRealDashboardData`**
+
+```typescript
+// hooks/useRealDashboardData.ts
+export const useRealDashboardData = (savingsParams?: SavingsParams) => {
+  const { session, selectedHotels } = useSupabase()
+  const [data, setData] = useState<DashboardData | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchData = useCallback(async (range: DateRange, interval: string = 'auto') => {
+    if (!session?.access_token) {
+      setError('No hay sesión activa')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+    
+    try {
+      // Construir URL con parámetros
+      const apiUrl = `/api/ops?from=${range.from.toISOString().split('T')[0]}&to=${range.to.toISOString().split('T')[0]}&interval=${interval}`
+      
+      // Llamar a la API con token de autenticación
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`)
+      }
+
+      const apiData = await response.json()
+      
+      // Procesar datos para gráficos
+      const processedData = processChartData(apiData, previousApiData, range, savingsParams)
+      
+      setData(processedData)
+      setError(null)
+      
+    } catch (error: any) {
+      setError(error.message || 'Error al obtener datos')
+      setData(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [session?.access_token, selectedHotels])
+
+  // Cargar datos iniciales
+  useEffect(() => {
+    if (session?.access_token) {
+      fetchData(dateRange, currentInterval)
+    }
+  }, [session?.access_token])
+
+  return { data, loading, error, refreshData: fetchData }
+}
+```
+
+### **Componente Dashboard**
+
+```typescript
+// components/dashboard/Dashboard.tsx
+export default function Dashboard() {
+  const { data, loading, error } = useRealDashboardData()
+  
+  if (loading) return <DashboardSkeleton />
+  if (error) return <ErrorMessage error={error} />
+  if (!data) return <NoDataMessage />
+  
+  return (
+    <div className="dashboard">
+      {/* KPIs principales */}
+      <div className="kpi-grid">
+        <KpiCard 
+          title="Emails Totales" 
+          value={data.totalEmails} 
+          variation={data.totalEmailsVariation}
+        />
+        <KpiCard 
+          title="Tiempo Respuesta" 
+          value={data.avgResponseTime} 
+          unit="min"
+          variation={data.avgResponseTimeVariation}
+        />
+        {/* ... más KPIs */}
+      </div>
+      
+      {/* Gráficos */}
+      <div className="charts-grid">
+        <ChartCard title="Volumen de Emails">
+          <LineChart data={data.volume} />
+        </ChartCard>
+        
+        <ChartCard title="SLA por Tramos">
+          <DonutChart data={data.slaTram} />
+        </ChartCard>
+        
+        {/* ... más gráficos */}
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+## 🗄️ Base de Datos
+
+### **Estructura Multi-Tenant**
+
+```sql
+-- Tabla principal de mensajes
+CREATE TABLE mail_message (
+  id UUID PRIMARY KEY,
+  hotel_id VARCHAR(50) NOT NULL, -- Filtro por hotel del usuario
+  received_ts TIMESTAMP NOT NULL,
+  response_ts TIMESTAMP,
+  manual_intervention BOOLEAN DEFAULT FALSE,
+  -- ... más campos
+);
+
+-- Tabla de análisis de mensajes
+CREATE TABLE mail_analysis (
+  mail_uuid UUID REFERENCES mail_message(id),
+  main_category VARCHAR(100),
+  sub_category VARCHAR(100),
+  sentiment VARCHAR(50),
+  language VARCHAR(20),
+  upselling_offer BOOLEAN DEFAULT FALSE,
+  upsell_accepted BOOLEAN DEFAULT FALSE,
+  upsell_revenue_eur DECIMAL(10,2),
+  -- ... más campos
+);
+
+-- Tabla de incidencias
+CREATE TABLE mail_incidencias (
+  uuid UUID REFERENCES mail_message(id),
+  delay_gestion_min INTEGER,
+  delay_resolucion_min INTEGER,
+  resenya_clicked BOOLEAN DEFAULT FALSE,
+  -- ... más campos
+);
+```
+
+### **Índices para Rendimiento**
+
+```sql
+-- Índices para consultas rápidas
+CREATE INDEX idx_mail_message_hotel_date ON mail_message(hotel_id, received_ts);
+CREATE INDEX idx_mail_message_date ON mail_message(received_ts);
+CREATE INDEX idx_mail_analysis_upselling ON mail_analysis(upselling_offer, upsell_accepted);
+CREATE INDEX idx_mail_incidencias_uuid ON mail_incidencias(uuid);
+```
+
+---
+
+## 👥 Configuración de Usuarios y Hoteles
+
+### **Sistema de Configuración**
+
+```typescript
+// lib/env-config.ts
+export interface UserConfig {
+  id: string
+  name: string
+  full_name: string
+  hotel_group: string      // Grupo de hoteles asignado
+  hotels: string[]         // Hoteles específicos del usuario
+  role: string            // Rol del usuario (admin, user, etc.)
+  status: string          // Estado del usuario (active, inactive)
+  profileImage?: string   // Imagen de perfil
+}
+
+export interface HotelGroupConfig {
+  id: string[]            // IDs de hoteles en este grupo
+  name: string            // Nombre del grupo
+  supabase: {
+    url: string           // URL de Supabase
+    anon_key: string      // Clave anónima (pública)
+  }
+  postgres: {
+    host: string          // Host de PostgreSQL
+    port: number          // Puerto de PostgreSQL
+    database: string      // Nombre de la base de datos
+    user: string          // Usuario de la base de datos
+    password: string      // Contraseña (SENSIBLE)
+    ssl: boolean          // Usar SSL
+  }
+}
+```
+
+### **Ejemplo de Configuración**
+
+```typescript
+const users = {
+  'sergio@smarthotels.es': {
+    id: 'sergio',
+    name: 'Sergio',
+    full_name: 'Sergio Barbero García',
+    hotel_group: 'test',                    // Grupo 'test'
+    hotels: ['demo1', 'demo2', 'demo3'],   // 3 hoteles
+    role: 'admin',
+    status: 'active'
+  }
+}
+
+const hotelGroups = {
+  'test': {
+    id: ['demo1', 'demo2', 'demo3'],
+    name: 'Mi VPS Principal',
+    postgres: {
+      host: 'aws-0-eu-west-3.pooler.supabase.com',
+      port: 6543,
+      database: 'postgres',
+      user: 'postgres.reqfyvseikyjztmnqjdt',
+      password: 'Mclaren123321!',           // ¡SENSIBLE!
+      ssl: true
+    }
+  }
+}
+```
+
+---
+
+## 🚀 Instalación y Configuración
+
+### **1. Clonar el Repositorio**
+
+```bash
+git clone https://github.com/tu-usuario/smarthotels-dashboard.git
+cd smarthotels-dashboard
+```
+
+### **2. Instalar Dependencias**
+
+```bash
+npm install
+```
+
+### **3. Configurar Variables de Entorno**
+
+```bash
+# Copiar archivo de ejemplo
+cp env.example .env.local
+
+# Editar .env.local con tus credenciales
+nano .env.local
+```
+
+**Contenido de `.env.local`:**
+```bash
+# Variables públicas (seguras para el cliente)
+NEXT_PUBLIC_SUPABASE_AUTH_URL=https://tu-proyecto.supabase.co
+NEXT_PUBLIC_SUPABASE_AUTH_ANON_KEY=tu_clave_anonima_aqui
+
+# Variables privadas (solo servidor)
+SUPABASE_AUTH_SERVICE_ROLE_KEY=tu_clave_service_role_aqui
+```
+
+### **4. Configurar Usuarios y Hoteles**
+
+```typescript
+// lib/env-config.ts
+const users = {
+  'tu-email@ejemplo.com': {
+    id: 'tu-id',
+    name: 'Tu Nombre',
+    hotel_group: 'tu-grupo',
+    hotels: ['hotel1', 'hotel2'],
+    role: 'admin',
+    status: 'active'
+  }
+}
+
+const hotelGroups = {
+  'tu-grupo': {
+    id: ['hotel1', 'hotel2'],
+    name: 'Tu Grupo de Hoteles',
+    postgres: {
+      host: 'tu-host-postgresql.com',
+      port: 5432,
+      database: 'tu_database',
+      user: 'tu_usuario',
+      password: 'tu_contraseña',
+      ssl: true
+    }
+  }
+}
+```
+
+### **5. Ejecutar el Servidor**
+
+```bash
+# Usar el script de PowerShell (Windows)
+.\start.ps1
+
+# O ejecutar directamente
+npm run dev
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### **Error: "Database connection failed"**
+
+**Causa:** Problemas de conexión a la base de datos
+**Solución:**
+1. Verificar credenciales en `.env.local`
+2. Verificar que la base de datos esté accesible
+3. Verificar configuración de red y firewall
+
+### **Error: "Unauthorized"**
+
+**Causa:** Token de autenticación inválido o expirado
+**Solución:**
+1. Verificar que el usuario esté autenticado
+2. Verificar variables `NEXT_PUBLIC_SUPABASE_*`
+3. Revisar logs de autenticación
+
+### **Error: "hotelIds.filter is not a function"**
+
+**Causa:** Variable `hotelIds` no es un array
+**Solución:**
+1. Verificar configuración de usuarios en `lib/env-config.ts`
+2. Asegurar que `getHotelIdsByGroup` devuelva siempre un array
+3. Revisar logs de configuración
+
+### **Los Gráficos No Se Muestran**
+
+**Causa:** Problemas en la API o datos vacíos
+**Solución:**
+1. Verificar logs del servidor
+2. Verificar que la base de datos tenga datos
+3. Verificar que las consultas SQL funcionen
+4. Revisar la consola del navegador para errores
+
+---
+
+## 📊 Ejemplo de Flujo Completo
+
+### **Escenario: Usuario Sergio Accede al Dashboard**
+
+1. **Autenticación:**
+   ```
+   Usuario: sergio@smarthotels.es
+   Password: ********
+   → Supabase valida credenciales
+   → Se genera access_token
+   ```
+
+2. **Frontend Solicita Datos:**
+   ```
+   GET /api/ops?from=2025-07-26&to=2025-08-26
+   Headers: Authorization: Bearer <access_token>
+   ```
+
+3. **Backend Procesa:**
+   ```
+   → Verifica token con Supabase Admin
+   → Identifica usuario: sergio@smarthotels.es
+   → Obtiene configuración: hotel_group='test', hotels=['demo1','demo2','demo3']
+   → Conecta a BD usando credenciales sensibles
+   → Ejecuta consultas filtradas por hoteles del usuario
+   ```
+
+4. **Datos Devueltos:**
+   ```json
+   {
+     "totalEmails": 1486,
+     "volume": [...],
+     "upselling": {
+       "offersSent": 1249,
+       "offersAccepted": 426
+     }
+   }
+   ```
+
+5. **Frontend Renderiza:**
+   ```
+   → Recibe datos seguros
+   → Genera gráficos y KPIs
+   → Usuario ve solo datos de sus hoteles
+   ```
+
+---
+
+## 🎯 Resumen de Seguridad
+
+### **✅ Lo que SÍ ve el Cliente:**
+- Variables `NEXT_PUBLIC_*`
+- Datos de negocio procesados
+- Gráficos y visualizaciones
+- Interfaz de usuario
+
+### **❌ Lo que NUNCA ve el Cliente:**
+- Variables de entorno privadas
+- Credenciales de base de datos
+- Configuración interna del sistema
+- Estructura de la base de datos
+
+### **🛡️ Medidas de Seguridad Implementadas:**
+1. **Separación de responsabilidades** entre frontend y backend
+2. **Validación de ejecución solo en servidor** con `typeof window !== 'undefined'`
+3. **Autenticación por token JWT** con Supabase
+4. **Filtrado de datos por usuario** en la base de datos
+5. **Manejo robusto de errores** sin exponer información sensible
+6. **Variables de entorno separadas** por nivel de seguridad
+
+---
+
+## 📚 Recursos Adicionales
+
+- [Documentación de Next.js](https://nextjs.org/docs)
+- [Documentación de Supabase](https://supabase.com/docs)
+- [Documentación de PostgreSQL](https://www.postgresql.org/docs/)
+- [Guía de Seguridad de Next.js](https://nextjs.org/docs/advanced-features/security-headers)
+
+---
+
+**¿Necesitas ayuda con algún aspecto específico del sistema?** 🚀

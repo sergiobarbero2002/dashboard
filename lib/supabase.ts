@@ -1,14 +1,27 @@
 import { createClient } from '@supabase/supabase-js'
+import { getHotelGroupConfigFromServer } from './env-config'
 
-// Cliente Supabase simple
+// Cliente Supabase principal para autenticación
 export const supabase = createClient(
-  'https://reqfyvseikyjztmnqjdt.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlcWZ5dnNlaWt5anp0bW5xamR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ4NzI5NzAsImV4cCI6MjA1MDQ0ODk3MH0.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8'
+  process.env.NEXT_PUBLIC_SUPABASE_AUTH_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_AUTH_ANON_KEY!
 )
 
-// Función para crear cliente para hotel específico
-export function createHotelSupabaseClient(hotelId: string) {
-  // Por ahora solo retornamos el cliente principal
-  // En el futuro, aquí leerías las credenciales del hotel específico
-  return supabase
+// Función para crear cliente Supabase para un grupo de hoteles específico
+export async function createHotelSupabaseClient(hotelGroupId: string) {
+  try {
+    const hotelGroupConfig = await getHotelGroupConfigFromServer(hotelGroupId)
+    if (!hotelGroupConfig) {
+      throw new Error(`Hotel group config not found for: ${hotelGroupId}`)
+    }
+
+    return createClient(
+      hotelGroupConfig.supabase.url,
+      hotelGroupConfig.supabase.anon_key
+    )
+  } catch (error) {
+    console.error('Error creating hotel Supabase client:', error)
+    // Fallback al cliente principal
+    return supabase
+  }
 }

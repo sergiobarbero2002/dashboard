@@ -1,236 +1,209 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
-import { User, Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase-simple'
-import { getUserNameFromConfig, getHotelIdFromUser, getUserRoleFromConfig, getUserProfileImage, getHotelsFromUser } from '@/lib/user-config'
-import { checkImageAndGetFallback } from '@/lib/image-utils'
+import React, { createContext, useContext, useEffect, useState } from 'react'
+import { createClient, User, Session } from '@supabase/supabase-js'
 
-type SupabaseContextType = {
-  user: User | null
+interface SupabaseContextType {
   session: Session | null
-  loading: boolean
-  hotelId: string | null
+  user: User | null
   hotels: string[]
+  hotelsData: Array<{
+    id: string
+    name: string
+    stars: number
+    rooms: number
+    location: string
+  }>
   selectedHotels: string[]
+  updateSelectedHotels: (hotels: string[]) => void
+  signInWithPassword: (credentials: { email: string; password: string }) => Promise<any>
+  signOut: () => Promise<void>
   userName: string | null
   userRole: string | null
-  userProfileImage: string
-  signIn: (email: string, password: string) => Promise<void>
-  signOut: () => Promise<void>
-  updateSelectedHotels: (hotels: string[]) => void
+  userProfileImage: string | null
+  loading: boolean
 }
 
 const SupabaseContext = createContext<SupabaseContextType | undefined>(undefined)
 
-export function SupabaseProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+export const useSupabase = () => {
+  const context = useContext(SupabaseContext)
+  if (!context) {
+    throw new Error('useSupabase must be used within a SupabaseProvider')
+  }
+  return context
+}
+
+export const SupabaseProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [hotelId, setHotelId] = useState<string | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [hotels, setHotels] = useState<string[]>([])
-  const [selectedHotels, setSelectedHotels] = useState<string[]>(() => {
-    // Intentar recuperar hoteles seleccionados del localStorage
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('selectedHotels')
-      return saved ? JSON.parse(saved) : []
-    }
-    return []
-  })
+  const [hotelsData, setHotelsData] = useState<Array<{
+    id: string
+    name: string
+    stars: number
+    rooms: number
+    location: string
+  }>>([])
+  const [selectedHotels, setSelectedHotels] = useState<string[]>([])
   const [userName, setUserName] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
-  const [userProfileImage, setUserProfileImage] = useState<string>('/assets/profiles/default.png')
+  const [userProfileImage, setUserProfileImage] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  // Función para cargar configuración del usuario desde el nuevo endpoint
+  const loadUserConfiguration = async (email: string, accessToken: string) => {
+    try {
+      const response = await fetch('/api/user-config', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        const userConfig = await response.json()
+        
+        // Establecer hoteles disponibles (IDs)
+        setHotels(userConfig.hotel_ids || [])
+        
+        // Establecer datos completos de hoteles
+        setHotelsData(userConfig.hotels || [])
+        
+        // Establecer hoteles seleccionados por defecto
+        if (selectedHotels.length === 0 && userConfig.hotel_ids?.length > 0) {
+          setSelectedHotels(userConfig.hotel_ids)
+          // Persistir en localStorage
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('selectedHotels', JSON.stringify(userConfig.hotel_ids))
+          }
+        }
+        
+        // Establecer información del usuario
+        setUserName(userConfig.full_name)
+        setUserRole(userConfig.role)
+        setUserProfileImage(userConfig.profileImage ? `/assets/profiles/${userConfig.profileImage}` : '/assets/profiles/default.png')
+        
+        console.log('✅ Configuración de usuario cargada:', userConfig)
+      } else {
+        console.error('Error loading user configuration:', response.status)
+      }
+    } catch (error) {
+      console.error('Error loading user configuration:', error)
+    }
+  }
+
+  // Función para verificar imagen y obtener fallback
+  const checkImageAndGetFallback = async (imagePath: string): Promise<string> => {
+    try {
+      const response = await fetch(imagePath)
+      if (response.ok) {
+        return imagePath
+      }
+    } catch (error) {
+      console.warn('Error checking image:', imagePath)
+    }
+    return '/assets/profiles/default.png'
+  }
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_AUTH_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_AUTH_ANON_KEY!
+    )
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Obtener sesión inicial
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
 
-      // Obtener hotel_id del metadata del usuario
-      if (session?.user?.user_metadata?.hotel_id) {
-        setHotelId(session.user.user_metadata.hotel_id)
-      } else if (session?.user?.email) {
-        // Obtener hotel_id desde la configuración de usuarios
-        const configHotelId = getHotelIdFromUser(session.user.email)
-        if (configHotelId) {
-          setHotelId(configHotelId)
-        }
-      }
-
-      // Obtener hoteles disponibles para el usuario
-      if (session?.user?.email) {
-        const userHotels = getHotelsFromUser(session.user.email)
-        setHotels(userHotels)
-        
-        // Solo seleccionar todos los hoteles si no hay ninguno seleccionado
-        // y no hay hoteles guardados en localStorage
-        if (selectedHotels.length === 0 && userHotels.length > 0) {
-          setSelectedHotels(userHotels)
-          // Persistir la selección inicial
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('selectedHotels', JSON.stringify(userHotels))
-          }
-        }
-      }
-
-      // Obtener nombre del usuario
-      if (session?.user?.user_metadata?.full_name) {
-        setUserName(session.user.user_metadata.full_name)
-      } else if (session?.user?.email) {
-        // Obtener nombre desde la configuración de usuarios
-        const configUserName = getUserNameFromConfig(session.user.email)
-        if (configUserName) {
-          setUserName(configUserName)
-        } else {
-          // Extraer nombre del email como fallback
-          const emailName = session.user.email.split('@')[0]
-          setUserName(emailName ? emailName.charAt(0).toUpperCase() + emailName.slice(1) : null)
-        }
-      }
-
-      // Obtener rol del usuario
-      if (session?.user?.user_metadata?.role) {
-        setUserRole(session.user.user_metadata.role)
-      } else if (session?.user?.email) {
-        // Obtener rol desde la configuración de usuarios
-        const configUserRole = getUserRoleFromConfig(session.user.email)
-        if (configUserRole) {
-          setUserRole(configUserRole)
-        }
-      }
-
-      // Obtener imagen de perfil del usuario
-      if (session?.user?.email) {
-        const profileImage = getUserProfileImage(session.user.email)
-        // Verificar si la imagen está vacía y usar fallback si es necesario
-        checkImageAndGetFallback(profileImage).then(validImage => {
-          setUserProfileImage(validImage)
-        }).catch(() => {
-          setUserProfileImage('/assets/profiles/default.png')
-        })
+      if (session?.user?.email && session?.access_token) {
+        await loadUserConfiguration(session.user.email, session.access_token)
       }
 
       setLoading(false)
     })
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // Escuchar cambios de autenticación
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
 
-      // Obtener hotel_id del metadata del usuario
-      if (session?.user?.user_metadata?.hotel_id) {
-        setHotelId(session.user.user_metadata.hotel_id)
-      } else if (session?.user?.email) {
-        // Obtener hotel_id desde la configuración de usuarios
-        const configHotelId = getHotelIdFromUser(session.user.email)
-        if (configHotelId) {
-          setHotelId(configHotelId)
-        }
+      if (session?.user?.email && session?.access_token) {
+        await loadUserConfiguration(session.user.email, session.access_token)
+      } else {
+        // Usuario desconectado, limpiar estado
+        setHotels([])
+        setHotelsData([])
+        setSelectedHotels([])
+        setUserName(null)
+        setUserRole(null)
+        setUserProfileImage(null)
       }
-
-      // Obtener hoteles disponibles para el usuario
-      if (session?.user?.email) {
-        const userHotels = getHotelsFromUser(session.user.email)
-        setHotels(userHotels)
-        // Por defecto, seleccionar todos los hoteles disponibles
-        setSelectedHotels(userHotels)
-      }
-
-      // Obtener nombre del usuario
-      if (session?.user?.user_metadata?.full_name) {
-        setUserName(session.user.user_metadata.full_name)
-      } else if (session?.user?.email) {
-        // Obtener nombre desde la configuración de usuarios
-        const configUserName = getUserNameFromConfig(session.user.email)
-        if (configUserName) {
-          setUserName(configUserName)
-        } else {
-          // Extraer nombre del email como fallback
-          const emailName = session.user.email.split('@')[0]
-          setUserName(emailName ? emailName.charAt(0).toUpperCase() + emailName.slice(1) : null)
-        }
-      }
-
-      // Obtener rol del usuario
-      if (session?.user?.user_metadata?.role) {
-        setUserRole(session.user.user_metadata.role)
-      } else if (session?.user?.email) {
-        // Obtener rol desde la configuración de usuarios
-        const configUserRole = getUserRoleFromConfig(session.user.email)
-        if (configUserRole) {
-          setUserRole(configUserRole)
-        }
-      }
-
-      // Obtener imagen de perfil del usuario
-      if (session?.user?.email) {
-        const profileImage = getUserProfileImage(session.user.email)
-        // Verificar si la imagen está vacía y usar fallback si es necesario
-        checkImageAndGetFallback(profileImage).then(validImage => {
-          setUserProfileImage(validImage)
-        }).catch(() => {
-          setUserProfileImage('/assets/profiles/default.png')
-        })
-      }
-
-      setLoading(false)
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
-  const signIn = async (email: string, password: string) => {
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-      if (error) throw error
-    } catch (error) {
-      console.error('Error in signIn:', error)
-      throw error
+  // Cargar hoteles seleccionados desde localStorage al inicializar
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedHotels = localStorage.getItem('selectedHotels')
+      if (savedHotels) {
+        try {
+          const parsedHotels = JSON.parse(savedHotels)
+          if (Array.isArray(parsedHotels)) {
+            setSelectedHotels(parsedHotels)
+          }
+        } catch (error) {
+          console.error('Error parsing saved hotels:', error)
+        }
+      }
     }
+  }, [])
+
+  // Persistir cambios en hoteles seleccionados
+  useEffect(() => {
+    if (typeof window !== 'undefined' && selectedHotels.length > 0) {
+      localStorage.setItem('selectedHotels', JSON.stringify(selectedHotels))
+    }
+  }, [selectedHotels])
+
+  // Funciones de autenticación
+  const signInWithPassword = async ({ email, password }: { email: string; password: string }) => {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_AUTH_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_AUTH_ANON_KEY!
+    )
+    return await supabase.auth.signInWithPassword({ email, password })
   }
 
   const signOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
-    } catch (error) {
-      console.error('Error in signOut:', error)
-      throw error
-    }
-  }
-
-  const updateSelectedHotels = (hotels: string[]) => {
-    // Evitar arrays vacíos
-    if (hotels.length === 0) return
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_AUTH_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_AUTH_ANON_KEY!
+    )
+    await supabase.auth.signOut()
     
-    setSelectedHotels(hotels)
-    
-    // Persistir en localStorage
+    // Limpiar localStorage
     if (typeof window !== 'undefined') {
-      localStorage.setItem('selectedHotels', JSON.stringify(hotels))
+      localStorage.removeItem('selectedHotels')
     }
   }
 
   const value = {
-    user,
     session,
-    loading,
-    hotelId,
+    user,
     hotels,
+    hotelsData,
     selectedHotels,
+    updateSelectedHotels: setSelectedHotels,
+    signInWithPassword,
+    signOut,
     userName,
     userRole,
     userProfileImage,
-    signIn,
-    signOut,
-    updateSelectedHotels
+    loading
   }
 
   return (
@@ -238,12 +211,4 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       {children}
     </SupabaseContext.Provider>
   )
-}
-
-export function useSupabase() {
-  const context = useContext(SupabaseContext)
-  if (context === undefined) {
-    throw new Error('useSupabase must be used within a SupabaseProvider')
-  }
-  return context
 }

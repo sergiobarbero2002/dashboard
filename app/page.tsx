@@ -21,7 +21,7 @@ import { getSentimentColor, getLanguageColor, getCategoryColor, getSlaTramColor,
 import { QuickStatsCard } from '@/components/dashboard/QuickStatsCard'
 
 export default function HomePage() {
-  const { session, loading: authLoading, user, hotelId, userName, userRole } = useSupabase()
+  const { session, loading: authLoading, user, userName, userRole } = useSupabase()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
   const { toasts, removeToast, showSuccess } = useToast()
@@ -33,9 +33,6 @@ export default function HomePage() {
   })
   const { currentTime, mounted: timeMounted } = useClientTime()
   const { playClick, playSuccess } = useSound()
-
-
-
 
 
   // Función para agrupar idiomas menores como "Otros"
@@ -127,7 +124,6 @@ export default function HomePage() {
       hasData: !!dashboardData,
       user: user?.email,
       userName,
-      hotelId,
       userRole
     })
     
@@ -136,11 +132,10 @@ export default function HomePage() {
       console.log('👤 Usuario detectado:', {
         email: user.email,
         userName,
-        hotelId,
         userRole
       })
     }
-  }, [mounted, authLoading, session, dataLoading, dashboardData, user, userName, hotelId, userRole])
+  }, [mounted, authLoading, session, dataLoading, dashboardData, user, userName, userRole])
 
   // Debug específico para incidencias
   useEffect(() => {
@@ -789,58 +784,6 @@ export default function HomePage() {
                   showDetailedTooltip={true}
                 />
               </ChartCard>
-            </div>
-          </div>
-
-          {/* Estado del Sistema - Al final */}
-          <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-            <h2 className="text-xl font-semibold mb-4">Estado del Sistema</h2>
-            
-            {/* Información del Usuario */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-3">Información del Usuario</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Nombre:</span>
-                    <span className="font-medium">{userName || 'No asignado'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Email:</span>
-                    <span className="font-medium">{user?.email}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Hotel ID:</span>
-                    <span className="font-medium">{hotelId}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Rol:</span>
-                    <span className="font-medium">{userRole || 'Usuario'}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-3">Estado del Sistema</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Última Actualización:</span>
-                    <span className="text-sm">{lastUpdated.toLocaleString('es-ES')}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Sesión Activa:</span>
-                    <span className="font-medium text-green-600">✅ Activa</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Conexión BD:</span>
-                    <span className="font-medium text-green-600">✅ Conectada</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">API Status:</span>
-                    <span className="font-medium text-green-600">✅ Funcionando</span>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>

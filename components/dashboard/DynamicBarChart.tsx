@@ -116,14 +116,9 @@ export const DynamicBarChart: React.FC<DynamicBarChartProps> = ({
   // Obtener todos los valores para calcular colores
   const allValues = data.map(item => item.value)
   
-  // Debug: mostrar los valores y colores calculados
-  console.log('🎨 DynamicBarChart - Data:', data)
-  console.log('🎨 DynamicBarChart - AllValues:', allValues)
-  
   // Calcular colores para cada barra
   const barColors = data.map(item => {
     const color = getColorByValue(item.value, allValues)
-    console.log(`🎨 Barra "${item.name}" (${item.value}€) → Color: ${color}`)
     return color
   })
 

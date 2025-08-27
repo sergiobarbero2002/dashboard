@@ -3,9 +3,6 @@ const nextConfig = {
   images: {
     domains: ['localhost', 'dashboard.smarthotels.es'],
   },
-  env: {
-    CUSTOM_KEY: process.env.CUSTOM_KEY,
-  },
   // Configuración para el dominio personalizado
   async headers() {
     return [
