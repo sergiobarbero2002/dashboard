@@ -34,6 +34,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const from = searchParams.get('from')
     const to = searchParams.get('to')
+    const compareFrom = searchParams.get('compareFrom') // Período de comparación
+    const compareTo = searchParams.get('compareTo')   // Período de comparación
     const selectedHotels = searchParams.get('hotels')
     const interval = searchParams.get('interval') || 'auto'
     
@@ -126,12 +128,6 @@ export async function GET(request: NextRequest) {
     
     // Función helper para usar hotelsWithData en lugar de hotelIds
     const getQueryParams = (from: string, to: string) => [from, to, hotelsWithData]
-    
-    console.log('🔍 === RESUMEN DE CONFIGURACIÓN ===')
-    console.log('🏨 Hoteles seleccionados:', hotelIds)
-    console.log('📅 Rango de fechas:', { from, to })
-    console.log('📊 Intervalo seleccionado:', interval)
-    console.log('🏢 Tenant ID:', tenantId)
 
     // ===== VERIFICAR CONEXIÓN A BASE DE DATOS =====
     try {
@@ -139,8 +135,6 @@ export async function GET(request: NextRequest) {
         SELECT COUNT(*) as total_messages FROM mail_message m
         WHERE m.received_ts BETWEEN $1 AND $2
       `, [from, to])
-      
-      console.log('✅ BD conectada -', debugResult.rows[0]?.total_messages || 0, 'mensajes')
       
     } catch (error) {
       console.error('❌ Error conexión BD:', error instanceof Error ? error.message : String(error))
@@ -154,82 +148,105 @@ export async function GET(request: NextRequest) {
 
     // ===== SECCIÓN 1: RESUMEN GENERAL (KPIs) =====
 
-        // 1. EMAILS TOTALES Y MANUALES
-    let emailsResult: any = { rows: [] }
-    try {
-      emailsResult = await query(tenantId, `
-        SELECT
-          COUNT(*) AS total_emails,
-          COUNT(*) FILTER (WHERE manual_intervention = TRUE) AS emails_manual
-        FROM mail_message m
-        WHERE m.received_ts BETWEEN $1 AND $2
-        ${hotelFilter}
-      `, getQueryParams(from, to))
-
-    } catch (error) {
-      console.error('❌ Error emails:', error)
-    }
-
-    // 2. TIEMPO MEDIO DE RESPUESTA
-    let avgResponseTimeResult: any = { rows: [] }
-    try {      
-      avgResponseTimeResult = await query(tenantId, `
-        SELECT 
-          AVG(m.response_ts - m.received_ts) AS avg_response_interval
-        FROM mail_message m
-        WHERE m.received_ts BETWEEN $1 AND $2
-          AND m.response_ts IS NOT NULL 
-          AND m.response_ts > m.received_ts
-          ${hotelFilter}
-      `, getQueryParams(from, to))
+        // ===== FUNCIÓN AUXILIAR PARA EJECUTAR CONSULTAS =====
+    const executeQueries = async (startDate: string, endDate: string) => {
+      const results: any = {}
       
-      const avgResponseTime = avgResponseTimeResult.rows[0]?.avg_response_interval 
-        ? postgresIntervalToMinutes(avgResponseTimeResult.rows[0].avg_response_interval)
-        : null
-
-    } catch (error) {
-      console.error('❌ Error tiempo respuesta:', error)
-    }
-
-    // 3. SLA 10min (PORCENTAJE)
-    let sla10minResult: any = { rows: [] }
-    try {      
-      sla10minResult = await query(tenantId, `
-        SELECT 
-          CASE 
-            WHEN COUNT(*) = 0 THEN 0
-            ELSE ROUND(
-              (COUNT(*) FILTER (WHERE (m.response_ts - m.received_ts) <= INTERVAL '10 minutes')::decimal / 
-               COUNT(*)) * 100, 1
-            )
-          END AS sla_10min_pct
-        FROM mail_message m
-        WHERE m.received_ts BETWEEN $1 AND $2
-          AND m.response_ts IS NOT NULL 
-          AND m.response_ts > m.received_ts
+      // 1. TOTAL DE EMAILS Y EMAILS MANUALES
+      try {
+        results.emails = await query(tenantId, `
+          SELECT
+            COUNT(*) AS total_emails,
+            COUNT(*) FILTER (WHERE manual_intervention = TRUE) AS emails_manual
+          FROM mail_message m
+          WHERE m.received_ts BETWEEN $1 AND $2
           ${hotelFilter}
-      `, getQueryParams(from, to))
-    } catch (error) {
-      console.error('❌ Error SLA 10min:', error)
-    }
+        `, getQueryParams(startDate, endDate))
+      } catch (error) {
+        console.error('❌ Error emails:', error)
+        results.emails = { rows: [] }
+      }
 
-    // 4. UPSELLING REVENUE TOTAL
-    let upsellingRevenueResult: any = { rows: [] }
-    try {
-      upsellingRevenueResult = await query(tenantId, `
-        SELECT 
-          COALESCE(SUM(upsell_revenue_eur), 0) AS total_revenue
-        FROM mail_analysis a
-        JOIN mail_message m ON a.mail_uuid = m.id
-        WHERE m.received_ts BETWEEN $1 AND $2
-          AND a.upselling_offer = TRUE
-          AND a.upsell_accepted = TRUE
-          ${hotelFilter}
-      `, getQueryParams(from, to))
+      // 2. TIEMPO MEDIO DE RESPUESTA
+      try {      
+        results.avgResponseTime = await query(tenantId, `
+          SELECT 
+            AVG(m.response_ts - m.received_ts) AS avg_response_interval
+          FROM mail_message m
+          WHERE m.received_ts BETWEEN $1 AND $2
+            AND m.response_ts IS NOT NULL 
+            AND m.response_ts > m.received_ts
+            ${hotelFilter}
+        `, getQueryParams(startDate, endDate))
+      } catch (error) {
+        console.error('❌ Error tiempo respuesta:', error)
+        results.avgResponseTime = { rows: [] }
+      }
 
-    } catch (error) {
-      console.error('❌ Error upselling revenue:', error)
+      // 3. SLA 10min (PORCENTAJE)
+      try {      
+        results.sla10min = await query(tenantId, `
+          SELECT 
+            CASE 
+              WHEN COUNT(*) = 0 THEN 0
+              ELSE ROUND(
+                (COUNT(*) FILTER (WHERE (m.response_ts - m.received_ts) <= INTERVAL '10 minutes')::decimal / 
+                 COUNT(*)) * 100, 1
+              )
+            END AS sla_10min_pct
+          FROM mail_message m
+          WHERE m.received_ts BETWEEN $1 AND $2
+            AND m.response_ts IS NOT NULL 
+            AND m.response_ts > m.received_ts
+            ${hotelFilter}
+        `, getQueryParams(startDate, endDate))
+      } catch (error) {
+        console.error('❌ Error SLA 10min:', error)
+        results.sla10min = { rows: [] }
+      }
+
+      // 4. UPSELLING REVENUE TOTAL
+      try {
+        results.upsellingRevenue = await query(tenantId, `
+          SELECT 
+            COALESCE(SUM(upsell_revenue_eur), 0) AS total_revenue
+          FROM mail_analysis a
+          JOIN mail_message m ON a.mail_uuid = m.id
+          WHERE m.received_ts BETWEEN $1 AND $2
+            AND a.upselling_offer = TRUE
+            AND a.upsell_accepted = TRUE
+            ${hotelFilter}
+        `, getQueryParams(startDate, endDate))
+            } catch (error) {
+        console.error('❌ Error upselling revenue:', error)
+        results.upsellingRevenue = { rows: [] }
+      }
+      
+      return results
     }
+    
+    // ===== EJECUTAR CONSULTAS PARA AMBOS PERÍODOS =====
+    
+    // Ejecutar consultas para el período actual
+    const currentPeriodData = await executeQueries(from, to)
+    
+    // Ejecutar consultas para el período de comparación (si se proporciona)
+    let comparisonPeriodData: any = null
+    if (compareFrom && compareTo) {
+      comparisonPeriodData = await executeQueries(compareFrom, compareTo)
+    } else {
+      // Calcular período anterior automáticamente
+      const fromDate = new Date(from)
+      const toDate = new Date(to)
+      const daysDiff = Math.ceil((toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24))
+      const previousFrom = new Date(fromDate.getTime() - (daysDiff * 24 * 60 * 60 * 1000))
+      const previousTo = new Date(fromDate.getTime() - (24 * 60 * 60 * 1000))
+      const previousFromDate = previousFrom.toISOString().split('T')[0]
+      const previousToDate = previousTo.toISOString().split('T')[0]
+      
+      comparisonPeriodData = await executeQueries(previousFromDate, previousToDate)
+    }
+    
     // ===== SECCIÓN 2: RENDIMIENTO IA =====
     
     // 5. VOLUMEN DINÁMICO E INTELIGENTE (con emails automáticos)
@@ -275,8 +292,6 @@ export async function GET(request: NextRequest) {
           intervalName = 'Mes'
         }
       }
-      
-      console.log(`📊 Usando intervalo: ${timeInterval} (${intervalName})`)
       
       // Construir la consulta según el tipo de intervalo
       let volumeQuery: string = ''
@@ -331,11 +346,6 @@ export async function GET(request: NextRequest) {
     // 6. DISTRIBUCIÓN SLA COMPLETA (tramos)
     let slaTramResult: any = { rows: [] }
     try {
-
-      console.log('  📅 Rango fechas:', { from, to })
-      console.log('  🏨 Hoteles filtro:', hotelsWithData)
-      console.log('  🔍 Filtro SQL:', hotelFilter)
-      
       slaTramResult = await query(tenantId, `
         WITH all_tramos AS (
           SELECT '<10min' AS sla_tramo UNION ALL
@@ -587,8 +597,6 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      console.log(`💰 Upselling revenue usando intervalo: ${revenueTimeInterval} (${revenueIntervalName})`)
-      
       // Construir la consulta según el tipo de intervalo
       let revenueQuery: string = ''
       let revenueQueryParams: any[] = []
@@ -819,8 +827,6 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      console.log(`📊 Upselling usando intervalo: ${upsellingTimeInterval} (${upsellingIntervalName})`)
-      
       // Construir la consulta según el tipo de intervalo
       let upsellingQuery: string = ''
       let upsellingQueryParams: any[] = []
@@ -1030,12 +1036,7 @@ export async function GET(request: NextRequest) {
 
     // 15. INCIDENCIAS POR SUBCATEGORÍA
     let incidenciasPorSubcategoriaResult: any = { rows: [] }
-    try {
-      console.log('🔍 DEBUG - Consulta incidencias por subcategoría:')
-      console.log('  📅 Rango fechas:', { from, to })
-      console.log('  🏨 Hoteles filtro:', hotelsWithData)
-      console.log('  🔍 Filtro SQL:', hotelFilter)
-      
+    try {      
                   incidenciasPorSubcategoriaResult = await query(tenantId, `
               SELECT
                 CASE 
@@ -1426,16 +1427,44 @@ export async function GET(request: NextRequest) {
       color: getSlaTramColor(row.sla_tramo)
     }))
 
-    // ===== OBJETO FINAL COMPLETO =====
-    const data = {
-      // ===== KPIs PRINCIPALES =====
-      totalEmails: emailsResult.rows.length > 0 ? parseInt(emailsResult.rows[0]?.total_emails || 0) : null,
-      emailsManual: emailsResult.rows.length > 0 ? parseInt(emailsResult.rows[0]?.emails_manual || 0) : null,
-      avgResponseTime: avgResponseTimeResult.rows.length > 0 ? postgresIntervalToMinutes(avgResponseTimeResult.rows[0]?.avg_response_interval) : null,
-      sla10min: sla10minResult.rows.length > 0 ? parseFloat(sla10minResult.rows[0]?.sla_10min_pct || 0) : null,
-      upsellingRevenue: upsellingRevenueResult.rows.length > 0 ? parseFloat(upsellingRevenueResult.rows[0]?.total_revenue || 0) : null,
-      
-      // ===== DATOS PARA GRÁFICAS =====
+          // ===== OBJETO FINAL COMPLETO =====
+      const data = {
+        // ===== KPIs PRINCIPALES =====
+        totalEmails: currentPeriodData.emails.rows.length > 0 ? parseInt(currentPeriodData.emails.rows[0]?.total_emails || 0) : null,
+        totalEmailsVariation: comparisonPeriodData ? calculateVariation(
+          currentPeriodData.emails.rows.length > 0 ? parseInt(currentPeriodData.emails.rows[0]?.total_emails || 0) : 0,
+          comparisonPeriodData.emails.rows.length > 0 ? parseInt(comparisonPeriodData.emails.rows[0]?.total_emails || 0) : 0
+        ) : null,
+        emailsManual: currentPeriodData.emails.rows.length > 0 ? parseInt(currentPeriodData.emails.rows[0]?.emails_manual || 0) : null,
+        emailsManualVariation: comparisonPeriodData ? calculateVariation(
+          currentPeriodData.emails.rows.length > 0 ? parseInt(currentPeriodData.emails.rows[0]?.emails_manual || 0) : 0,
+          comparisonPeriodData.emails.rows.length > 0 ? parseInt(comparisonPeriodData.emails.rows[0]?.emails_manual || 0) : 0
+        ) : null,
+        avgResponseTime: currentPeriodData.avgResponseTime.rows.length > 0 ? postgresIntervalToMinutes(currentPeriodData.avgResponseTime.rows[0]?.avg_response_interval) : null,
+        avgResponseTimeVariation: comparisonPeriodData ? calculateVariation(
+          currentPeriodData.avgResponseTime.rows.length > 0 ? postgresIntervalToMinutes(currentPeriodData.avgResponseTime.rows[0]?.avg_response_interval) || 0 : 0,
+          comparisonPeriodData.avgResponseTime.rows.length > 0 ? postgresIntervalToMinutes(comparisonPeriodData.avgResponseTime.rows[0]?.avg_response_interval) || 0 : 0
+        ) : null,
+        sla10min: currentPeriodData.sla10min.rows.length > 0 ? parseFloat(currentPeriodData.sla10min.rows[0]?.sla_10min_pct || 0) : null,
+        sla10minVariation: comparisonPeriodData ? calculateVariation(
+          currentPeriodData.sla10min.rows.length > 0 ? parseFloat(currentPeriodData.sla10min.rows[0]?.sla_10min_pct || 0) : 0,
+          comparisonPeriodData.sla10min.rows.length > 0 ? parseFloat(comparisonPeriodData.sla10min.rows[0]?.sla_10min_pct || 0) : 0
+        ) : null,
+        upsellingRevenue: currentPeriodData.upsellingRevenue.rows.length > 0 ? parseFloat(currentPeriodData.upsellingRevenue.rows[0]?.total_revenue || 0) : null,
+                upsellingRevenueVariation: comparisonPeriodData ? calculateVariation(
+          currentPeriodData.upsellingRevenue.rows.length > 0 ? parseFloat(currentPeriodData.upsellingRevenue.rows[0]?.total_revenue || 0) : 0,
+          comparisonPeriodData.upsellingRevenue.rows.length > 0 ? parseFloat(comparisonPeriodData.upsellingRevenue.rows[0]?.total_revenue || 0) : 0
+        ) : null,
+        
+        // ===== KPIs ADICIONALES =====
+        interventionPercentage: currentPeriodData.emails.rows.length > 0 && currentPeriodData.emails.rows[0]?.total_emails > 0 
+          ? ((parseInt(currentPeriodData.emails.rows[0]?.emails_manual || 0) / parseInt(currentPeriodData.emails.rows[0]?.total_emails || 1)) * 100) 
+          : 0,
+        manualIntervention: currentPeriodData.emails.rows.length > 0 && currentPeriodData.emails.rows[0]?.total_emails > 0 
+          ? ((parseInt(currentPeriodData.emails.rows[0]?.emails_manual || 0) / parseInt(currentPeriodData.emails.rows[0]?.total_emails || 1)) * 100) 
+          : 0,
+        
+        // ===== DATOS PARA GRÁFICAS =====
       volume: volumeData,
       slaTram: slaTramData,
       sentiment: sentimentData,
@@ -1590,6 +1619,8 @@ export async function GET(request: NextRequest) {
     console.log(`  • Período: ${from} a ${to}`)
     console.log(`  • Intervalo seleccionado: ${interval}`)
     console.log(`  • Intervalo usado: ${volumeData[0]?.intervalType || 'N/A'} (${volumeData[0]?.intervalName || 'N/A'})`)
+    console.log('  • Hoteles filtro:', hotelsWithData)
+    console.log('  • Tenant ID:', tenantId)
     
     // Mostrar información detallada del intervalo
     if (interval !== 'auto') {
@@ -1625,6 +1656,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 })
   }
 }
+// ===== FUNCIONES AUXILIARES =====
+
+// Función para calcular variación porcentual entre dos valores
+function calculateVariation(current: number, previous: number): { percentage: number; isIncrease: boolean } | null {
+  if (previous === 0) return null
+  const variation = ((current - previous) / previous) * 100
+  return { 
+    percentage: Math.round(Math.abs(variation) * 10) / 10, 
+    isIncrease: variation > 0 
+  }
+}
+
 // ===== FUNCIONES AUXILIARES PARA COLORES =====
 
 function getSentimentColor(sentiment: string): string {

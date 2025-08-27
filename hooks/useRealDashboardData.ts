@@ -88,7 +88,6 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
   const [error, setError] = useState<string | null>(null)
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange())
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
-  const [previousRawData, setPreviousRawData] = useState<any>(null)
   const [currentInterval, setCurrentInterval] = useState<string>('auto')
   const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false)
   const [shouldStopTrying, setShouldStopTrying] = useState(false)
@@ -142,9 +141,6 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
     }
 
     console.log('✅ Token de sesión disponible:', session.access_token.substring(0, 20) + '...')
-    console.log('📅 Rango:', range.from.toLocaleDateString(), 'a', range.to.toLocaleDateString())
-    console.log('📊 Intervalo seleccionado:', interval)
-    console.log('🏨 Hoteles seleccionados:', selectedHotels)
     
     // MARCAR QUE SE ESTÁ EJECUTANDO
     setIsFetching(true)
@@ -167,12 +163,18 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
       
       console.log('📅 Período anterior:', previousFromDate, 'a', previousToDate, '(diferencia:', daysDiff, 'días)')
       
-      // Construir URL con parámetros de intervalo
+
+
+
+
+      // Construir URL con parámetros de intervalo y comparación
       const intervalParam = interval !== 'auto' ? `&interval=${interval}` : ''
-      const apiUrl = `/api/ops?from=${fromDate}&to=${toDate}&hotels=${JSON.stringify(selectedHotels)}${intervalParam}`
+      const compareParam = `&compareFrom=${previousFromDate}&compareTo=${previousToDate}`
+      const apiUrl = `/api/ops?from=${fromDate}&to=${toDate}&hotels=${JSON.stringify(selectedHotels)}${intervalParam}${compareParam}`
       
+      console.log('📡 Llamando a API con URL:', apiUrl)
       
-      // Obtener datos del período actual
+      // Obtener datos del período actual CON variaciones calculadas por la API
       const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
@@ -181,33 +183,17 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
         }
       })
 
-      console.log('📡 Respuesta del período actual:', {
+      console.log('📡 Respuesta de la API:', {
         status: response.status,
         statusText: response.statusText,
         ok: response.ok
       })
 
-      // Obtener datos del período anterior para comparación
-      const previousResponse = await fetch(`/api/ops?from=${previousFromDate}&to=${previousToDate}&hotels=${JSON.stringify(selectedHotels)}${intervalParam}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      console.log('📡 Respuesta del período anterior:', {
-        status: previousResponse.status,
-        statusText: previousResponse.statusText,
-        ok: previousResponse.ok
-      })
-
-      if (!response.ok || !previousResponse.ok) {
+      if (!response.ok) {
         throw new Error(`Error en la API: ${response.status} ${response.statusText}`)
       }
 
       const rawData = await response.json()
-      const previousRawData = await previousResponse.json()
 
       // Verificar si hay datos reales
       if (!rawData.totalEmails || rawData.totalEmails === 0) {
@@ -218,10 +204,9 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
         return
       }
 
-      // Procesar datos y actualizar estado
-      const processedData = processChartData(rawData, previousRawData, range, savingsParams)
+      // Procesar datos y actualizar estado (ahora rawData ya incluye las variaciones)
+      const processedData = processChartData(rawData, range, savingsParams)
       setData(processedData)
-      setPreviousRawData(previousRawData)
       setLastUpdated(new Date())
       setError(null)
       
@@ -245,45 +230,24 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
     }
   }, [session?.access_token, selectedHotels]) // SOLO dependencias estables
 
-  // Función para calcular variación porcentual entre dos valores
-  const calculateVariation = (current: number, previous: number): { percentage: number; isIncrease: boolean } => {
-    if (previous === 0) return { percentage: current > 0 ? 100 : 0, isIncrease: current > 0 }
-    const variation = ((current - previous) / previous) * 100
-    return { percentage: Math.abs(variation), isIncrease: variation > 0 }
-  }
 
-  // Función para generar el texto del período de comparación
-  const getComparisonPeriodText = (days: number) => {
-    if (days === 1) return 'ayer'
-    if (days === 7) return 'la semana anterior'
-    if (days === 30) return 'el mes anterior'
-    if (days === 90) return 'el trimestre anterior'
-    if (days === 365) return 'el año anterior'
-    return `los ${days} días anteriores`
-  }
-
-  // Función para obtener el nombre de visualización del intervalo
-  const getIntervalDisplayName = (interval: string): string => {
-    switch (interval) {
-      case 'day': return 'Día'
-      case 'week': return 'Semana'
-      case 'month': return 'Mes'
-      case 'auto': return 'Automático'
-      default: return interval
-    }
-  }
 
   // Función para procesar y distribuir los datos de manera inteligente
-  const processChartData = (rawData: any, previousRawData: any, range: DateRange, savingsParams?: { minutesPerEmail: number; hourlyRate: number }): DashboardData => {
+  const processChartData = (rawData: any, range: DateRange, savingsParams?: { minutesPerEmail: number; hourlyRate: number }): DashboardData => {
     // Verificar que rawData tenga la estructura esperada
     if (!rawData || typeof rawData !== 'object') {
       console.error('❌ rawData no es un objeto válido:', rawData)
       return createEmptyData()
     }
     
-    // Calcular días de diferencia para el texto
-    const daysDiff = Math.ceil((range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24))
-    const comparisonPeriodText = getComparisonPeriodText(daysDiff)
+          // Calcular días de diferencia para el texto
+      const daysDiff = Math.ceil((range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24))
+      const comparisonPeriodText = daysDiff === 1 ? 'ayer' : 
+        daysDiff === 7 ? 'la semana anterior' :
+        daysDiff === 30 ? 'el mes anterior' :
+        daysDiff === 90 ? 'el trimestre anterior' :
+        daysDiff === 365 ? 'el año anterior' :
+        `los ${daysDiff} días anteriores`
     
     // Generar fechas inteligentes para las gráficas
     const intelligentDates = generateIntelligentDates(range, 7)
@@ -317,47 +281,27 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
       // Información del período de comparación
       comparisonPeriodText: comparisonPeriodText,
       
-      // KPIs principales
+      // KPIs principales (las variaciones ya vienen de la API)
       totalEmails: rawData.totalEmails || 0,
-      totalEmailsVariation: previousRawData ? calculateVariation(
-        rawData.totalEmails || 0, 
-        previousRawData.totalEmails || 0
-      ) : undefined,
-      
-
+      totalEmailsVariation: rawData.totalEmailsVariation || undefined,
       
       sla10min: rawData.sla10min || null,
-      sla10minVariation: previousRawData ? calculateVariation(
-        rawData.sla10min || 0, 
-        previousRawData.sla10min || 0
-      ) : undefined,
+      sla10minVariation: rawData.sla10minVariation || undefined,
       
       avgResponseTime: rawData.avgResponseTime || null,
-      avgResponseTimeVariation: previousRawData ? calculateVariation(
-        rawData.avgResponseTime || 0, 
-        previousRawData.avgResponseTime || 0
-      ) : undefined,
+      avgResponseTimeVariation: rawData.avgResponseTimeVariation || undefined,
       
       upsellingRevenue: rawData.upsellingRevenue || 0,
-      upsellingRevenueVariation: previousRawData ? calculateVariation(
-        rawData.upsellingRevenue || 0, 
-        previousRawData.upsellingRevenue || 0
-      ) : undefined,
+      upsellingRevenueVariation: rawData.upsellingRevenueVariation || undefined,
       
 
       
-      // KPIs adicionales con variaciones
-      interventionPercentage: rawData.totalEmails > 0 ? ((rawData.emailsManual || 0) / rawData.totalEmails) * 100 : 0,
-      interventionPercentageVariation: previousRawData ? calculateVariation(
-        rawData.totalEmails > 0 ? ((rawData.emailsManual || 0) / rawData.totalEmails) * 100 : 0,
-        previousRawData.totalEmails > 0 ? ((previousRawData.emailsManual || 0) / previousRawData.totalEmails) * 100 : 0
-      ) : undefined,
+      // KPIs adicionales con variaciones (ya vienen de la API)
+      interventionPercentage: rawData.interventionPercentage || 0,
+      interventionPercentageVariation: rawData.interventionPercentageVariation || undefined,
       
-      personalSavings: rawData.ahorroEuros || 0, // Usar el mismo valor que ahorroEuros
-      personalSavingsVariation: previousRawData ? calculateVariation(
-        rawData.totalEmails || 0, 
-        previousRawData.totalEmails || 0
-      ) : undefined, // La variación del ahorro personal es igual a la del total de emails
+      personalSavings: rawData.personalSavings || 0,
+      personalSavingsVariation: rawData.personalSavingsVariation || undefined,
       
       // Datos para gráficas
       volume: volumeData,
@@ -375,31 +319,19 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
       // Upselling por mes (ofertas enviadas y conversión)
       upsellingByMonth: rawData.upsellingByMonth || [],
       
-      // Incidencias
+      // Incidencias (las variaciones ya vienen de la API)
       incidencias: {
         total: rawData.incidencias?.total || 0,
-        totalVariation: previousRawData ? calculateVariation(
-          rawData.incidencias?.total || 0, 
-          previousRawData.incidencias?.total || 0
-        ) : undefined,
+        totalVariation: rawData.incidencias?.totalVariation || undefined,
         
         reviewClicks: rawData.incidencias?.reviewClicks || 0,
-        reviewClicksVariation: previousRawData ? calculateVariation(
-          rawData.incidencias?.reviewClicks || 0, 
-          previousRawData.incidencias?.reviewClicks || 0
-        ) : undefined,
+        reviewClicksVariation: rawData.incidencias?.reviewClicksVariation || undefined,
         
         avgManagementDelay: rawData.incidencias?.avgManagementDelay || 0,
-        avgManagementDelayVariation: previousRawData ? calculateVariation(
-          rawData.incidencias?.avgManagementDelay || 0, 
-          previousRawData.incidencias?.avgManagementDelay || 0
-        ) : undefined,
+        avgManagementDelayVariation: rawData.incidencias?.avgManagementDelayVariation || undefined,
         
         avgResolutionDelay: rawData.incidencias?.avgResolutionDelay || 0,
-        avgResolutionDelayVariation: previousRawData ? calculateVariation(
-          rawData.incidencias?.avgResolutionDelay || 0, 
-          previousRawData.incidencias?.avgResolutionDelay || 0
-        ) : undefined,
+        avgResolutionDelayVariation: rawData.incidencias?.avgResolutionDelayVariation || undefined,
         
         incidenciasPorSubcategoria: rawData.incidencias?.incidenciasPorSubcategoria || [],
         porMes: rawData.incidencias?.porMes || []
@@ -421,34 +353,7 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
     console.log(`  📅 Inc. por mes: ${rawData.incidencias?.porMes?.length || 0} meses`)
     console.log('')
     
-    // ===== LOGS DE COMPARACIÓN =====
-    if (previousRawData) {
-      console.log('')
-      console.log('📊 DATOS DEL PERÍODO DE COMPARACIÓN:')
-      console.log(`  📧 Emails: ${previousRawData.totalEmails || 0} total, ${previousRawData.emailsManual || 0} manuales`)
-      console.log(`  ⏱️ Tiempo respuesta: ${previousRawData.avgResponseTime || 0} min`)
-      console.log(`  🎯 SLA 10min: ${previousRawData.sla10min || 0}%`)
-  
-      console.log(`  🚨 Incidencias: ${previousRawData.incidencias?.total || 0} total, ${previousRawData.incidencias?.reviewClicks || 0} reviews`)
-      console.log('')
-      
-      console.log('📈 VARIACIONES PORCENTUALES:')
-      const totalEmailsVar = previousRawData.totalEmails ? ((rawData.totalEmails - previousRawData.totalEmails) / previousRawData.totalEmails * 100).toFixed(1) : 'N/A'
-      const emailsManualVar = previousRawData.emailsManual ? ((rawData.emailsManual - previousRawData.emailsManual) / previousRawData.emailsManual * 100).toFixed(1) : 'N/A'
-      const avgResponseTimeVar = previousRawData.avgResponseTime ? ((rawData.avgResponseTime - previousRawData.avgResponseTime) / previousRawData.avgResponseTime * 100).toFixed(1) : 'N/A'
-      const sla10minVar = previousRawData.sla10min ? ((rawData.sla10min - previousRawData.sla10min) / previousRawData.sla10min * 100).toFixed(1) : 'N/A'
-      const upsellingVar = previousRawData.upselling?.offersSent ? ((rawData.upselling.offersSent - previousRawData.upselling.offersSent) / previousRawData.upselling.offersSent * 100).toFixed(1) : 'N/A'
-      const incidenciasVar = previousRawData.incidencias?.total ? ((rawData.incidencias.total - previousRawData.incidencias.total) / previousRawData.incidencias.total * 100).toFixed(1) : 'N/A'
-      
-      console.log(`  📧 Emails totales: ${totalEmailsVar}%`)
-      console.log(`  📧 Emails manuales: ${emailsManualVar}%`)
-      console.log(`  ⏱️ Tiempo respuesta: ${avgResponseTimeVar}%`)
-      console.log(`  🎯 SLA 10min: ${sla10minVar}%`)
-  
-      console.log(`  🚨 Incidencias: ${incidenciasVar}%`)
-      console.log('')
-      console.log('='.repeat(60))
-    }
+
     
     return result
   }
