@@ -106,6 +106,22 @@ export default function LoginPage() {
       
       {/* Contenido del login */}
       <div className="bg-white/90 backdrop-blur-sm p-8 rounded-2xl shadow-2xl w-full max-w-md relative z-10 border-2 border-smarthotels-gold/30 hover:border-smarthotels-gold/60 transition-all duration-500 hover:shadow-3xl">
+        {/* Botón para volver a la página principal */}
+        <div className="absolute -top-4 -left-4 z-20">
+          <a
+            href="https://smarthotels.es"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-smarthotels-gold text-white text-sm font-medium rounded-full shadow-lg hover:bg-yellow-600 transform hover:scale-105 hover:-translate-y-1 transition-all duration-300 hover:shadow-xl border-2 border-white"
+            onClick={() => playClick()}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            <span>Volver a SmartHotels</span>
+          </a>
+        </div>
+        
         <div className="flex justify-center mb-6">
           <Image
             src="/assets/images/smarthotels-logo.png"
