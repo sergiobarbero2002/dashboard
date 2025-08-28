@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { useSupabase } from '@/components/providers/SupabaseProvider'
+import { useSound } from '@/hooks/useSound'
 
 interface HotelSelectorProps {
   className?: string
@@ -9,6 +10,7 @@ interface HotelSelectorProps {
 
 export default function HotelSelector({ className = '' }: HotelSelectorProps) {
   const { hotels, hotelsData, selectedHotels, updateSelectedHotels, session } = useSupabase()
+  const { playClick } = useSound()
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -34,10 +36,12 @@ export default function HotelSelector({ className = '' }: HotelSelectorProps) {
     } else {
       updateSelectedHotels([...selectedHotels, hotelId])
     }
+    playClick()
   }
 
   const handleSelectAll = () => {
     updateSelectedHotels(hotels)
+    playClick()
   }
 
   const getDisplayText = () => {
@@ -63,7 +67,10 @@ export default function HotelSelector({ className = '' }: HotelSelectorProps) {
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setIsOpen(!isOpen)
+          playClick()
+        }}
         className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
       >
         <div className="relative group">

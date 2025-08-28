@@ -11,7 +11,8 @@
 7. [Base de Datos](#-base-de-datos)
 8. [Configuración de Usuarios y Hoteles](#-configuración-de-usuarios-y-hoteles)
 9. [Instalación y Configuración](#-instalación-y-configuración)
-10. [Troubleshooting](#-troubleshooting)
+10. [Deployment en Vercel](#-deployment-en-vercel)
+11. [Troubleshooting](#-troubleshooting)
 
 ---
 
@@ -709,48 +710,102 @@ NEXT_PUBLIC_SUPABASE_AUTH_ANON_KEY=tu_clave_anonima_aqui
 
 # Variables privadas (solo servidor)
 SUPABASE_AUTH_SERVICE_ROLE_KEY=tu_clave_service_role_aqui
+
+# Configuración de usuarios y hoteles (JSON strings)
+USER_CONFIGS={"tu-email@ejemplo.com":{"full_name":"Tu Nombre","tenant_id":"tu-grupo","role":"admin","profileImage":"default.png"}}
+HOTEL_GROUP_CONFIGS={"tu-grupo":{"id":["hotel1","hotel2"],"name":"Tu Grupo","postgres":{"host":"tu-host.com","port":5432,"database":"tu_db","user":"tu_user","password":"tu_pass","ssl":true}}}
+HOTEL_CONFIGS={"hotel1":{"id":"hotel1","name":"Hotel 1","stars":4,"rooms":100,"location":"Tu Ciudad"},"hotel2":{"id":"hotel2","name":"Hotel 2","stars":5,"rooms":150,"location":"Tu Ciudad"}}
 ```
 
-### **4. Configurar Usuarios y Hoteles**
-
-```typescript
-// lib/env-config.ts
-const users = {
-  'tu-email@ejemplo.com': {
-    id: 'tu-id',
-    name: 'Tu Nombre',
-    hotel_group: 'tu-grupo',
-    hotels: ['hotel1', 'hotel2'],
-    role: 'admin',
-    status: 'active'
-  }
-}
-
-const hotelGroups = {
-  'tu-grupo': {
-    id: ['hotel1', 'hotel2'],
-    name: 'Tu Grupo de Hoteles',
-    postgres: {
-      host: 'tu-host-postgresql.com',
-      port: 5432,
-      database: 'tu_database',
-      user: 'tu_usuario',
-      password: 'tu_contraseña',
-      ssl: true
-    }
-  }
-}
-```
-
-### **5. Ejecutar el Servidor**
+### **4. Ejecutar el Servidor**
 
 ```bash
-# Usar el script de PowerShell (Windows)
-.\start.ps1
-
-# O ejecutar directamente
+# Desarrollo local
 npm run dev
+
+# O usar el script de PowerShell (Windows)
+.\start.ps1
 ```
+
+---
+
+## 🚀 Deployment en Vercel
+
+### **Configuración Automática**
+
+El proyecto está configurado para deployment automático en Vercel con el archivo `vercel.json`:
+
+```json
+{
+  "version": 2,
+  "name": "smarthotels-dashboard",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "origin-when-cross-origin"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### **Pasos para Deploy**
+
+1. **Conectar con GitHub:**
+   - Ve a [vercel.com](https://vercel.com)
+   - Conecta tu cuenta de GitHub
+   - Importa el repositorio `smarthotels-dashboard`
+
+2. **Configurar Variables de Entorno:**
+   - En el dashboard de Vercel, ve a Settings → Environment Variables
+   - Añade las siguientes variables:
+
+   ```bash
+   # Variables públicas
+   NEXT_PUBLIC_SUPABASE_AUTH_URL=https://tu-proyecto.supabase.co
+   NEXT_PUBLIC_SUPABASE_AUTH_ANON_KEY=tu_clave_anonima_aqui
+   
+   # Variables privadas
+   SUPABASE_AUTH_SERVICE_ROLE_KEY=tu_clave_service_role_aqui
+   
+   # Configuración JSON (reemplaza con tus datos)
+   USER_CONFIGS={"tu-email@ejemplo.com":{"full_name":"Tu Nombre","tenant_id":"tu-grupo","role":"admin","profileImage":"default.png"}}
+   HOTEL_GROUP_CONFIGS={"tu-grupo":{"id":["hotel1"],"name":"Tu Grupo","postgres":{"host":"tu-host.com","port":5432,"database":"tu_db","user":"tu_user","password":"tu_pass","ssl":true}}}
+   HOTEL_CONFIGS={"hotel1":{"id":"hotel1","name":"Hotel 1","stars":4,"rooms":100,"location":"Tu Ciudad"}}
+   ```
+
+3. **Deploy Automático:**
+   - Cada push a `main` se deployará automáticamente
+   - Vercel detectará que es un proyecto Next.js y lo configurará automáticamente
+
+4. **Dominio Personalizado (Opcional):**
+   - En Settings → Domains, añade tu dominio personalizado
+   - Configura los registros DNS según las instrucciones de Vercel
+
+### **Consideraciones para Vercel**
+
+- **Serverless Functions:** Las API routes se ejecutan como funciones serverless
+- **Variables de Entorno:** Se configuran en el dashboard de Vercel
+- **Base de Datos:** Asegúrate de que tu PostgreSQL sea accesible desde Vercel
+- **Límites:** Las funciones serverless tienen límites de tiempo de ejecución (10s en plan gratuito)
 
 ---
 
@@ -760,34 +815,52 @@ npm run dev
 
 **Causa:** Problemas de conexión a la base de datos
 **Solución:**
-1. Verificar credenciales en `.env.local`
-2. Verificar que la base de datos esté accesible
+1. Verificar credenciales en variables de entorno
+2. Verificar que la base de datos esté accesible desde Vercel
 3. Verificar configuración de red y firewall
+4. **En Vercel:** Asegurar que las variables `HOTEL_GROUP_CONFIGS` estén correctamente configuradas
 
 ### **Error: "Unauthorized"**
 
 **Causa:** Token de autenticación inválido o expirado
 **Solución:**
 1. Verificar que el usuario esté autenticado
-2. Verificar variables `NEXT_PUBLIC_SUPABASE_*`
-3. Revisar logs de autenticación
+2. Verificar variables `NEXT_PUBLIC_SUPABASE_*` en Vercel
+3. Revisar logs de autenticación en Vercel Functions
 
 ### **Error: "hotelIds.filter is not a function"**
 
 **Causa:** Variable `hotelIds` no es un array
 **Solución:**
-1. Verificar configuración de usuarios en `lib/env-config.ts`
-2. Asegurar que `getHotelIdsByGroup` devuelva siempre un array
-3. Revisar logs de configuración
+1. Verificar que `USER_CONFIGS` esté correctamente formateado en Vercel
+2. Asegurar que el JSON sea válido (sin comillas extra)
+3. Revisar logs de Vercel Functions
 
 ### **Los Gráficos No Se Muestran**
 
 **Causa:** Problemas en la API o datos vacíos
 **Solución:**
-1. Verificar logs del servidor
+1. Verificar logs de Vercel Functions
 2. Verificar que la base de datos tenga datos
 3. Verificar que las consultas SQL funcionen
 4. Revisar la consola del navegador para errores
+
+### **Error: "Function execution timeout" (Vercel)**
+
+**Causa:** Las consultas a la base de datos tardan más de 10 segundos
+**Solución:**
+1. Optimizar consultas SQL con índices
+2. Usar plan Pro de Vercel (límite de 60s)
+3. Implementar paginación en consultas grandes
+4. Usar caché para datos estáticos
+
+### **Error: "Environment variable not found" (Vercel)**
+
+**Causa:** Variables de entorno no configuradas en Vercel
+**Solución:**
+1. Verificar que todas las variables estén en Settings → Environment Variables
+2. Asegurar que las variables estén en el entorno correcto (Production/Preview/Development)
+3. Hacer redeploy después de añadir variables
 
 ---
 
@@ -869,6 +942,60 @@ npm run dev
 - [Documentación de Supabase](https://supabase.com/docs)
 - [Documentación de PostgreSQL](https://www.postgresql.org/docs/)
 - [Guía de Seguridad de Next.js](https://nextjs.org/docs/advanced-features/security-headers)
+
+---
+
+## 📁 Estructura del Proyecto
+
+### **Archivos Esenciales para Vercel**
+
+```
+smarthotels-dashboard/
+├── app/                          # App Router de Next.js 14
+│   ├── api/                      # API Routes (Serverless Functions)
+│   │   ├── ops/route.ts         # API principal del dashboard
+│   │   └── user-config/route.ts # API de configuración
+│   ├── layout.tsx               # Layout principal
+│   ├── page.tsx                 # Dashboard principal
+│   └── login/page.tsx           # Página de login
+├── components/                   # Componentes React
+│   ├── dashboard/               # Componentes del dashboard
+│   ├── providers/               # Providers de contexto
+│   └── ui/                      # Componentes UI reutilizables
+├── lib/                         # Utilidades y configuración
+│   ├── database.ts              # Conexión a PostgreSQL
+│   ├── supabase.ts              # Cliente Supabase
+│   ├── supabase-admin.ts        # Admin Supabase
+│   ├── date-utils.ts            # Utilidades de fechas
+│   ├── chart-colors.ts          # Colores de gráficos
+│   └── utils.ts                 # Utilidades generales
+├── hooks/                       # Hooks personalizados
+├── public/                      # Assets estáticos
+├── .eslintrc.json               # Configuración ESLint
+├── .gitignore                   # Archivos ignorados por Git
+├── .prettierrc                  # Configuración Prettier
+├── env.example                  # Ejemplo de variables de entorno
+├── next.config.js               # Configuración Next.js
+├── package.json                 # Dependencias y scripts
+├── postcss.config.js            # Configuración PostCSS
+├── tailwind.config.js           # Configuración Tailwind CSS
+├── tsconfig.json                # Configuración TypeScript
+└── vercel.json                  # Configuración de Vercel
+```
+
+### **Archivos de Desarrollo (No necesarios en Vercel)**
+
+- `start.ps1` - Script de PowerShell para desarrollo local
+- `generar_datos.sql` - Script SQL para generar datos de prueba
+- `tsconfig.tsbuildinfo` - Archivo de caché de TypeScript (se regenera)
+
+### **Configuración de Vercel**
+
+El archivo `vercel.json` está optimizado para:
+- **Build automático** con Next.js
+- **Headers de seguridad** (X-Frame-Options, CSP, etc.)
+- **Variables de entorno** configuradas desde el dashboard
+- **Deployment automático** desde GitHub
 
 ---
 

@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { cn, getStatusColor } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
 interface KpiCardProps {
@@ -77,7 +77,7 @@ export const KpiCard: React.FC<KpiCardProps> = ({
             )}
           </div>
           {subtitle && (
-            <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
+            <p className="text-sm text-gray-500 mt-1 whitespace-nowrap overflow-hidden text-ellipsis" title={subtitle}>{subtitle}</p>
           )}
         </div>
       </div>

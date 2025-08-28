@@ -63,7 +63,7 @@ export const DynamicBarChart: React.FC<DynamicBarChartProps> = ({
           <p className="font-bold text-gray-800 mb-3 text-center border-b-2 border-smarthotels-gold pb-2">{label}</p>
                      {payload.map((entry: any, index: number) => (
              <p key={index} style={{ color: entry.color }} className="font-semibold text-base mb-1">
-               {entry.name}: {entry.value}€
+               {entry.value}€
              </p>
            ))}
           
@@ -89,10 +89,7 @@ export const DynamicBarChart: React.FC<DynamicBarChartProps> = ({
                     <span className="font-medium">Fechas:</span> {currentData.startDate} a {currentData.endDate}
                   </p>
                 )}
-                <p className="text-xs text-gray-600 flex items-center gap-1">
-                  <span className="text-smarthotels-gold">💰</span>
-                  <span className="font-medium">Revenue:</span> {currentData.value}€
-                </p>
+
               </div>
             </div>
           )}
@@ -146,10 +143,8 @@ export const DynamicBarChart: React.FC<DynamicBarChartProps> = ({
             label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft' } : undefined}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Legend />
           <Bar 
             dataKey="value" 
-            name="Revenue Estimado"
             radius={[4, 4, 0, 0]}
           >
             {data.map((entry, index) => (

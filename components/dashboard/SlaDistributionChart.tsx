@@ -1,44 +1,38 @@
 'use client'
 
 import React from 'react'
-import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { getSlaTramColor } from '@/lib/chart-colors'
 
-interface BarChartProps {
-  data: Array<{ name: string; value: number; count?: number; totalEmailsPeriod?: number; color?: string }>
+interface SlaDistributionChartProps {
+  data: Array<{ name: string; value: number; totalEmailsPeriod: number; color: string }>
   title?: string
   height?: number
-  xAxisLabel?: string
-  yAxisLabel?: string
-  horizontal?: boolean
 }
 
-export const BarChart: React.FC<BarChartProps> = ({
+export const SlaDistributionChart: React.FC<SlaDistributionChartProps> = ({
   data,
   title,
-  height = 300,
-  xAxisLabel,
-  yAxisLabel,
-  horizontal = false
+  height = 300
 }) => {
-
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const currentData = data.find(item => item.name === label)
-      return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-medium">{label}</p>
-          {currentData?.totalEmailsPeriod ? (
-            <p className="text-smarthotels-gold font-semibold text-lg">
-              {currentData.totalEmailsPeriod} emails ({payload[0].value}%)
-            </p>
-          ) : (
-            <p className="text-smarthotels-gold font-semibold">
-              {payload[0].value}%
-            </p>
-          )}
-        </div>
-      )
+      if (currentData) {
+        return (
+          <div className="bg-white p-4 border-2 border-smarthotels-gold rounded-xl shadow-2xl">
+            <p className="font-bold text-gray-800 mb-3 text-center border-b-2 border-smarthotels-gold pb-2">{label}</p>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-smarthotels-gold mb-1">
+                {currentData.totalEmailsPeriod} emails
+              </p>
+              <p className="text-xl font-semibold text-gray-600">
+                ({currentData.value}%)
+              </p>
+            </div>
+          </div>
+        )
+      }
     }
     return null
   }
@@ -54,18 +48,18 @@ export const BarChart: React.FC<BarChartProps> = ({
     )
   }
 
-  // Mantener el orden original de los datos (no ordenar por valor)
+  // Mantener el orden original de los datos
   const chartData = [...data]
 
   return (
-    <div className="w-full">
+    <div className="w-full h-full">
       {title && (
         <h4 className="text-center text-sm font-medium text-gray-600 mb-4">{title}</h4>
       )}
-      <ResponsiveContainer width="100%" height={height}>
-        <RechartsBarChart
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
           data={chartData}
-          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+          margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis 
@@ -73,15 +67,13 @@ export const BarChart: React.FC<BarChartProps> = ({
             stroke="#6b7280"
             fontSize={12}
             tick={{ fontSize: 11 }}
-            angle={horizontal ? 0 : -45}
-            textAnchor={horizontal ? 'middle' : 'end'}
-            height={horizontal ? 60 : 80}
+            height={50}
           />
           <YAxis 
             stroke="#6b7280"
             fontSize={12}
             tick={{ fontSize: 11 }}
-            label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft' } : undefined}
+            label={{ value: '%', angle: -90, position: 'insideLeft' }}
           />
           <Tooltip content={<CustomTooltip />} />
           <Bar 
@@ -96,8 +88,10 @@ export const BarChart: React.FC<BarChartProps> = ({
               />
             ))}
           </Bar>
-        </RechartsBarChart>
+        </BarChart>
       </ResponsiveContainer>
+      
+
     </div>
   )
 }

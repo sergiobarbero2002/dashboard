@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSupabase } from '@/components/providers/SupabaseProvider'
-import { generateIntelligentDates, formatChartDate, getDefaultDateRange } from '@/lib/date-utils'
+import { generateIntelligentDates, formatChartDate } from '@/lib/date-utils'
 import { getSlaTramColor } from '@/lib/chart-colors'
 import { useToast } from '@/hooks/useToast'
 import { useSound } from '@/hooks/useSound'
@@ -12,6 +12,10 @@ export interface DashboardData {
   // KPIs principales
   totalEmails: number
   totalEmailsVariation?: { percentage: number; isIncrease: boolean }
+  customerSatisfaction: number
+  customerSatisfactionVariation?: { percentage: number; isIncrease: boolean }
+  unansweredEmailsPercentage: number
+  unansweredEmailsPercentageVariation?: { percentage: number; isIncrease: boolean }
   avgResponseTime: number | null
   avgResponseTimeVariation?: { percentage: number; isIncrease: boolean }
   sla10min: number | null
@@ -25,18 +29,20 @@ export interface DashboardData {
   personalSavings: number
   personalSavingsVariation?: { percentage: number; isIncrease: boolean }
   
+
+  
   // Datos para gráficas
   volume: Array<{ name: string; total: number; automatic: number; unanswered?: number; intervalType?: string; intervalName?: string; startDate?: string; endDate?: string }>
-  slaTram: Array<{ name: string; value: number; color: string }>
+  slaTram: Array<{ name: string; value: number; totalEmailsPeriod: number; color: string }>
   sentiment: Array<{ name: string; value: number; color: string }>
   language: Array<{ name: string; value: number; color: string }>
   category: Array<{ name: string; value: number; color: string }>
   
   // Revenue por mes para gráfico de barras
-          upsellingRevenueByMonth: Array<{ name: string; value: number; intervalType?: string; intervalName?: string }>
+  upsellingRevenueByMonth: Array<{ name: string; value: number; intervalType?: string; intervalName?: string }>
   
   // Upselling por mes (ofertas enviadas y conversión)
-          upsellingByMonth: Array<{ name: string; offersSent: number; conversionRate: number; intervalType?: string; intervalName?: string }>
+  upsellingByMonth: Array<{ name: string; offersSent: number; conversionRate: number; totalEmailsInterval: number; intervalType?: string; intervalName?: string }>
   
   // Incidencias
   incidencias: {
@@ -49,7 +55,7 @@ export interface DashboardData {
     avgResolutionDelay: number
     avgResolutionDelayVariation?: { percentage: number; isIncrease: boolean }
     incidenciasPorSubcategoria: Array<{ name: string; value: number }>
-            porMes: Array<{ name: string; totalIncidents: number; avgManagementDelay: number; avgResolutionDelay: number; intervalType?: string; intervalName?: string }>
+    porMes: Array<{ name: string; totalIncidents: number; avgManagementDelay: number; avgResolutionDelay: number; intervalType?: string; intervalName?: string }>
   }
 }
 
@@ -86,14 +92,18 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange())
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const now = new Date()
+    const from = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000)) // 30 días atrás
+    return { from, to: now }
+  })
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [currentInterval, setCurrentInterval] = useState<string>('auto')
   const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false)
   const [shouldStopTrying, setShouldStopTrying] = useState(false)
   const [isFetching, setIsFetching] = useState(false) // NUEVO: Control de ejecución única
   const { showSuccess } = useToast()
-  const { playSuccess } = useSound()
+  const { playClick, playSuccess } = useSound()
 
   // SOLO UNA VEZ: Cargar datos cuando se autentica el usuario (después del login/demo)
   useEffect(() => {
@@ -211,9 +221,6 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
       setError(null)
       
       console.log('✅ === DATOS PROCESADOS Y GUARDADOS ===')
-      console.log('📊 Total de emails:', processedData.totalEmails)
-      console.log('📊 SLA 10min:', processedData.sla10min)
-      console.log('💰 Upselling revenue:', processedData.upsellingRevenue)
       console.log('🏁 === fetchData EJECUCIÓN COMPLETADA ===')
       
     } catch (error) {
@@ -240,14 +247,14 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
       return createEmptyData()
     }
     
-          // Calcular días de diferencia para el texto
-      const daysDiff = Math.ceil((range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24))
-      const comparisonPeriodText = daysDiff === 1 ? 'ayer' : 
-        daysDiff === 7 ? 'la semana anterior' :
-        daysDiff === 30 ? 'el mes anterior' :
-        daysDiff === 90 ? 'el trimestre anterior' :
-        daysDiff === 365 ? 'el año anterior' :
-        `los ${daysDiff} días anteriores`
+    // Calcular días de diferencia para el texto
+    const daysDiff = Math.ceil((range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24))
+    const comparisonPeriodText = daysDiff === 1 ? 'ayer' : 
+      daysDiff === 7 ? 'la semana anterior' :
+      daysDiff === 30 ? 'el mes anterior' :
+      daysDiff === 90 ? 'el trimestre anterior' :
+      daysDiff === 365 ? 'el año anterior' :
+      `los ${daysDiff} días anteriores`
     
     // Generar fechas inteligentes para las gráficas
     const intelligentDates = generateIntelligentDates(range, 7)
@@ -260,21 +267,22 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
     // SLA por tramos (convertir a porcentajes)
     
     // Calcular el total de emails para calcular porcentajes
-    const totalSlaEmails = rawData.slaTram?.reduce((sum: number, item: any) => sum + (item.value || 0), 0) || 0
+    const totalSlaEmails = rawData.slaTram?.reduce((sum: number, item: any) => sum + (item.totalEmailsPeriod || 0), 0) || 0
     
     const slaTramData = rawData.slaTram?.map((item: any) => {
-      const percentage = totalSlaEmails > 0 ? ((item.value || 0) / totalSlaEmails) * 100 : 0
+      const percentage = totalSlaEmails > 0 ? ((item.totalEmailsPeriod || 0) / totalSlaEmails) * 100 : 0
       return {
         name: item.name,
         value: Number(percentage.toFixed(1)),
+        totalEmailsPeriod: item.totalEmailsPeriod || 0,
         color: getSlaTramColor(item.name)
       }
     }) || [
-      { name: '<10min', value: 0, color: getSlaTramColor('<10min') },
-      { name: '10min-1h', value: 0, color: getSlaTramColor('10min-1h') },
-      { name: '1-4h', value: 0, color: getSlaTramColor('1-4h') },
-      { name: '4-24h', value: 0, color: getSlaTramColor('4-24h') },
-      { name: '>24h', value: 0, color: getSlaTramColor('>24h') }
+      { name: '<10min', value: 0, totalEmailsPeriod: 0, color: getSlaTramColor('<10min') },
+      { name: '10min-1h', value: 0, totalEmailsPeriod: 0, color: getSlaTramColor('10min-1h') },
+      { name: '1-4h', value: 0, totalEmailsPeriod: 0, color: getSlaTramColor('1-4h') },
+      { name: '4-24h', value: 0, totalEmailsPeriod: 0, color: getSlaTramColor('4-24h') },
+      { name: '>24h', value: 0, totalEmailsPeriod: 0, color: getSlaTramColor('>24h') }
     ]
 
     const result: DashboardData = {
@@ -284,6 +292,11 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
       // KPIs principales (las variaciones ya vienen de la API)
       totalEmails: rawData.totalEmails || 0,
       totalEmailsVariation: rawData.totalEmailsVariation || undefined,
+      
+      customerSatisfaction: rawData.customerSatisfaction || 0,
+      customerSatisfactionVariation: rawData.customerSatisfactionVariation || undefined,
+      unansweredEmailsPercentage: rawData.unansweredEmailsPercentage || 0,
+      unansweredEmailsPercentageVariation: rawData.unansweredEmailsPercentageVariation || undefined,
       
       sla10min: rawData.sla10min || null,
       sla10minVariation: rawData.sla10minVariation || undefined,
@@ -336,25 +349,7 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
         incidenciasPorSubcategoria: rawData.incidencias?.incidenciasPorSubcategoria || [],
         porMes: rawData.incidencias?.porMes || []
       }
-    }
-    
-    // ===== LOG DETALLADO DEL PERÍODO ACTUAL =====
-    console.log('')
-    console.log('📋 DETALLES DEL PERÍODO ACTUAL:')
-    console.log(`  📊 Volumen: ${rawData.volume?.length || 0} meses`)
-    console.log(`  ⏰ SLA tramos: ${rawData.slaTram?.map((r: any) => `${r.name}:${r.value}`).join(', ') || 'Sin datos'}`)
-
-    console.log(`  😊 Sentimiento: ${rawData.sentiment?.map((r: any) => `${r.name}:${r.value}`).join(', ') || 'Sin datos'}`)
-    console.log(`  🌍 Idiomas: ${rawData.language?.map((r: any) => `${r.name}:${r.value}`).join(', ') || 'Sin datos'}`)
-    console.log(`  📂 Categorías: ${rawData.category?.map((r: any) => `${r.name}:${r.value}`).join(', ') || 'Sin datos'}`)
-    console.log(`  📈 Ups. revenue por mes: ${rawData.upsellingRevenueByMonth?.length || 0} meses`)
-    console.log(`  📊 Ups. por mes: ${rawData.upsellingByMonth?.length || 0} meses`)
-            console.log(`  📋 Inc. por subcategoría: ${rawData.incidencias?.incidenciasPorSubcategoria?.map((r: any) => `${r.name}:${r.value}`).join(', ') || 'Sin datos'}`)
-    console.log(`  📅 Inc. por mes: ${rawData.incidencias?.porMes?.length || 0} meses`)
-    console.log('')
-    
-
-    
+    }    
     return result
   }
 
@@ -367,7 +362,10 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
       
       // KPIs principales
       totalEmails: 0,
-
+      customerSatisfaction: 0,
+      customerSatisfactionVariation: undefined,
+      unansweredEmailsPercentage: 0,
+      unansweredEmailsPercentageVariation: undefined,
       sla10min: 0,
       avgResponseTime: 0,
       upsellingRevenue: 0,
@@ -379,11 +377,11 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
       // Datos para gráficas
       volume: emptyDates.map(date => ({ name: formatChartDate(date, dateRange), total: 0, automatic: 0 })),
       slaTram: [
-        { name: '<10min', value: 0, color: getSlaTramColor('<10min') },
-        { name: '10min-1h', value: 0, color: getSlaTramColor('10min-1h') },
-        { name: '1-4h', value: 0, color: getSlaTramColor('1-4h') },
-        { name: '4-24h', value: 0, color: getSlaTramColor('4-24h') },
-        { name: '>24h', value: 0, color: getSlaTramColor('>24h') }
+        { name: '<10min', value: 0, totalEmailsPeriod: 0, color: getSlaTramColor('<10min') },
+        { name: '10min-1h', value: 0, totalEmailsPeriod: 0, color: getSlaTramColor('10min-1h') },
+        { name: '1-4h', value: 0, totalEmailsPeriod: 0, color: getSlaTramColor('1-4h') },
+        { name: '4-24h', value: 0, totalEmailsPeriod: 0, color: getSlaTramColor('4-24h') },
+        { name: '>24h', value: 0, totalEmailsPeriod: 0, color: getSlaTramColor('>24h') }
       ],
       sentiment: [],
       language: [],
@@ -398,9 +396,13 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
       // Incidencias
       incidencias: {
         total: 0,
+        totalVariation: undefined,
         reviewClicks: 0,
+        reviewClicksVariation: undefined,
         avgManagementDelay: 0,
+        avgManagementDelayVariation: undefined,
         avgResolutionDelay: 0,
+        avgResolutionDelayVariation: undefined,
         incidenciasPorSubcategoria: [],
         porMes: []
       }
@@ -425,8 +427,8 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
       
       // Mostrar notificación de éxito
       showSuccess('Datos actualizados correctamente')
-      // Reproducir sonido de éxito
-      playSuccess()
+      // Reproducir sonido de click
+      playClick()
     } catch (error) {
       console.error('❌ Error al actualizar datos:', error)
     }
@@ -474,7 +476,11 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
   }, [])
 
   // Asegurar que siempre devolvemos valores válidos
-  const safeDateRange = dateRange || getDefaultDateRange()
+      const safeDateRange = dateRange || (() => {
+      const now = new Date()
+      const from = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000)) // 30 días atrás
+      return { from, to: now }
+    })()
   const safeLastUpdated = lastUpdated || new Date()
 
   return {

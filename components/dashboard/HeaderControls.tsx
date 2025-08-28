@@ -16,6 +16,113 @@ interface HeaderControlsProps {
   currentInterval?: string
 }
 
+// ===== FUNCIONES AUXILIARES =====
+
+// Función para obtener el nombre de visualización del intervalo
+const getIntervalDisplayName = (interval: string) => {
+  if (interval === 'auto') return 'Automático'
+  
+  const match = interval.match(/^(\w+)(\d+)$/)
+  if (match) {
+    const [, type, quantity] = match
+    const quantityNum = parseInt(quantity)
+    
+    const intervalTypes = {
+      day: ['1 Día', 'Días'],
+      week: ['1 Semana', 'Semanas'], 
+      month: ['1 Mes', 'Meses'],
+      year: ['1 Año', 'Años']
+    }
+    
+    const [singular, plural] = intervalTypes[type as keyof typeof intervalTypes] || [interval, interval]
+    return quantityNum === 1 ? singular : `${quantityNum} ${plural}`
+  }
+  
+  const simpleTypes = {
+    day: '1 Día',
+    week: '1 Semana',
+    month: '1 Mes',
+    year: '1 Año'
+  }
+  return simpleTypes[interval as keyof typeof simpleTypes] || 'Automático'
+}
+
+// Función para formatear el período de fechas
+const formatPeriod = (from: Date, to: Date) => {
+  const fromDay = from.getDate()
+  const fromMonth = from.toLocaleDateString('es-ES', { month: 'short' })
+  const toDay = to.getDate()
+  const toMonth = to.toLocaleDateString('es-ES', { month: 'short' })
+  
+  if (fromMonth === toMonth) {
+    return `${fromDay}-${toDay} ${fromMonth}`
+  }
+  return `${fromDay} ${fromMonth}-${toDay} ${toMonth}`
+}
+
+// Función para crear opciones de intervalo
+const createIntervalOption = (
+  type: string, 
+  label: string, 
+  currentInterval: string, 
+  onChange: (value: string) => void
+) => (
+  <div className="flex items-center gap-3">
+    <input
+      type="radio"
+      id={type}
+      name="interval"
+      value={type}
+      checked={currentInterval.startsWith(type)}
+      onChange={() => onChange(type)}
+      className="text-smarthotels-gold focus:ring-smarthotels-gold"
+    />
+    <label htmlFor={type} className="text-sm font-medium text-gray-700 min-w-[60px]">
+      {label}
+    </label>
+    <input
+      type="number"
+      min="1"
+      value={currentInterval.startsWith(type) ? currentInterval.replace(type, '') || '1' : '1'}
+      onChange={(e) => {
+        const value = e.target.value
+        if (value && parseInt(value) > 0) {
+          onChange(`${type}${value}`)
+        }
+      }}
+      className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-smarthotels-gold focus:border-smarthotels-gold"
+      disabled={!currentInterval.startsWith(type)}
+    />
+  </div>
+)
+
+// Función para crear opciones de fecha rápida
+const createDatePresetOption = (
+  id: string,
+  label: string,
+  description: string,
+  selected: string,
+  onChange: (value: string) => void
+) => (
+  <div className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
+    <div className="flex items-center gap-3">
+      <input
+        type="radio"
+        id={id}
+        name="date-preset"
+        value={id}
+        checked={selected === id}
+        onChange={() => onChange(id)}
+        className="text-smarthotels-gold focus:ring-smarthotels-gold"
+      />
+      <label htmlFor={id} className="text-sm font-medium text-gray-700">
+        {label}
+      </label>
+    </div>
+    <span className="text-xs text-gray-500">{description}</span>
+  </div>
+)
+
 export function HeaderControls({ 
   dateRange, 
   onDateChange, 
@@ -33,7 +140,7 @@ export function HeaderControls({
   const [localCurrentInterval, setLocalCurrentInterval] = useState<string>(propCurrentInterval)
   const [selectedDatePreset, setSelectedDatePreset] = useState<string>('')
   const { showSuccess, showError } = useToast()
-  const { playSuccess } = useSound()
+  const { playClick, playSuccess } = useSound()
   const datePickerRef = useRef<HTMLDivElement>(null)
   const intervalPickerRef = useRef<HTMLDivElement>(null)
 
@@ -138,14 +245,14 @@ export function HeaderControls({
     onDateChange(from, now)
     setShowDatePicker(false)
     setShowCustomPicker(false)
-    playSuccess()
+    playClick()
     showSuccess('Período de fechas actualizado correctamente')
   }
 
   const handleRefresh = async () => {
     if (onRefresh) {
       await onRefresh()
-      playSuccess()
+      playClick()
       showSuccess('Datos actualizados correctamente')
     }
   }
@@ -182,64 +289,20 @@ export function HeaderControls({
       onDateChange(fromDate, toDate)
     }
     setShowCustomPicker(false)
-    playSuccess()
+    playClick()
     showSuccess('Rango de fechas actualizado correctamente')
   }
 
   const handleIntervalChange = (interval: string) => {
     if (onIntervalChange) {
       onIntervalChange(interval)
-      playSuccess()
+      playClick()
       showSuccess(`Intervalo cambiado a: ${getIntervalDisplayName(interval)}`)
     }
     setShowIntervalPicker(false)
   }
 
-  const getIntervalDisplayName = (interval: string) => {
-    if (interval === 'auto') return 'Automático'
-    
-    // Extraer el tipo y la cantidad del intervalo
-    const match = interval.match(/^(\w+)(\d+)$/)
-    if (match) {
-      const [, type, quantity] = match
-      const quantityNum = parseInt(quantity)
-      
-      switch (type) {
-        case 'day':
-          return quantityNum === 1 ? '1 Día' : `${quantityNum} Días`
-        case 'week':
-          return quantityNum === 1 ? '1 Semana' : `${quantityNum} Semanas`
-        case 'month':
-          return quantityNum === 1 ? '1 Mes' : `${quantityNum} Meses`
-        case 'year':
-          return quantityNum === 1 ? '1 Año' : `${quantityNum} Años`
-        default:
-          return interval
-      }
-    }
-    
-    // Fallback para intervalos simples
-    switch (interval) {
-      case 'day': return '1 Día'
-      case 'week': return '1 Semana'
-      case 'month': return '1 Mes'
-      case 'year': return '1 Año'
-      default: return 'Automático'
-    }
-  }
 
-  // Formatear período de manera ultra breve e intuitiva
-  const formatPeriod = (from: Date, to: Date) => {
-    const fromDay = from.getDate()
-    const fromMonth = from.toLocaleDateString('es-ES', { month: 'short' })
-    const toDay = to.getDate()
-    const toMonth = to.toLocaleDateString('es-ES', { month: 'short' })
-    
-    if (fromMonth === toMonth) {
-      return `${fromDay}-${toDay} ${fromMonth}`
-    }
-    return `${fromDay} ${fromMonth}-${toDay} ${toMonth}`
-  }
 
   return (
     <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-40">
@@ -249,7 +312,10 @@ export function HeaderControls({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowDatePicker(!showDatePicker)}
+            onClick={() => {
+              setShowDatePicker(!showDatePicker)
+              playClick()
+            }}
             className="text-sm px-4 py-2 h-10 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200"
           >
             <Calendar className="h-4 w-4 mr-2" />
@@ -265,100 +331,11 @@ export function HeaderControls({
                 <div className="space-y-3">
                   <h4 className="text-sm font-medium text-gray-700">Períodos Rápidos:</h4>
                   
-                  {/* Última semana */}
-                  <div className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        id="last-week"
-                        name="date-preset"
-                        value="last-week"
-                        checked={selectedDatePreset === 'last-week'}
-                        onChange={() => handleQuickDate('last-week')}
-                        className="text-smarthotels-gold focus:ring-smarthotels-gold"
-                      />
-                      <label htmlFor="last-week" className="text-sm font-medium text-gray-700">
-                Última semana
-                      </label>
-                    </div>
-                    <span className="text-xs text-gray-500">7 días atrás</span>
-                  </div>
-
-                  {/* Último mes */}
-                  <div className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        id="last-month"
-                        name="date-preset"
-                        value="last-month"
-                        checked={selectedDatePreset === 'last-month'}
-                        onChange={() => handleQuickDate('last-month')}
-                        className="text-smarthotels-gold focus:ring-smarthotels-gold"
-                      />
-                      <label htmlFor="last-month" className="text-sm font-medium text-gray-700">
-                Último mes
-                      </label>
-                    </div>
-                    <span className="text-xs text-gray-500">30 días atrás</span>
-                  </div>
-
-                  {/* Último trimestre */}
-                  <div className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        id="last-quarter"
-                        name="date-preset"
-                        value="last-quarter"
-                        checked={selectedDatePreset === 'last-quarter'}
-                        onChange={() => handleQuickDate('last-quarter')}
-                        className="text-smarthotels-gold focus:ring-smarthotels-gold"
-                      />
-                      <label htmlFor="last-quarter" className="text-sm font-medium text-gray-700">
-                        Último trimestre
-                      </label>
-                    </div>
-                    <span className="text-xs text-gray-500">3 meses atrás</span>
-                  </div>
-
-                  {/* Último año */}
-                  <div className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        id="last-year"
-                        name="date-preset"
-                        value="last-year"
-                        checked={selectedDatePreset === 'last-year'}
-                        onChange={() => handleQuickDate('last-year')}
-                        className="text-smarthotels-gold focus:ring-smarthotels-gold"
-                      />
-                      <label htmlFor="last-year" className="text-sm font-medium text-gray-700">
-                        Último año
-                      </label>
-                    </div>
-                    <span className="text-xs text-gray-500">12 meses atrás</span>
-                  </div>
-
-                  {/* YTD */}
-                  <div className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        id="ytd"
-                        name="date-preset"
-                        value="ytd"
-                        checked={selectedDatePreset === 'ytd'}
-                        onChange={() => handleQuickDate('ytd')}
-                        className="text-smarthotels-gold focus:ring-smarthotels-gold"
-                      />
-                      <label htmlFor="ytd" className="text-sm font-medium text-gray-700">
-                        YTD
-                      </label>
-                    </div>
-                    <span className="text-xs text-gray-500">Año actual</span>
-                  </div>
+                  {createDatePresetOption('last-week', 'Última semana', '7 días atrás', selectedDatePreset, handleQuickDate)}
+                  {createDatePresetOption('last-month', 'Último mes', '30 días atrás', selectedDatePreset, handleQuickDate)}
+                  {createDatePresetOption('last-quarter', 'Último trimestre', '3 meses atrás', selectedDatePreset, handleQuickDate)}
+                  {createDatePresetOption('last-year', 'Último año', '12 meses atrás', selectedDatePreset, handleQuickDate)}
+                  {createDatePresetOption('ytd', 'YTD', 'Año actual', selectedDatePreset, handleQuickDate)}
                 </div>
 
                 {/* Separador */}
@@ -458,7 +435,10 @@ export function HeaderControls({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowIntervalPicker(!showIntervalPicker)}
+            onClick={() => {
+              setShowIntervalPicker(!showIntervalPicker)
+              playClick()
+            }}
             className="text-sm px-4 py-2 h-10 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200"
           >
             <BarChart3 className="h-4 w-4 mr-2" />
@@ -496,121 +476,10 @@ export function HeaderControls({
                 <div className="space-y-3">
                   <h4 className="text-sm font-medium text-gray-700">Personalizar:</h4>
                   
-                  {/* Días */}
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="radio"
-                      id="day"
-                      name="interval"
-                      value="day"
-                      checked={localCurrentInterval.startsWith('day')}
-                      onChange={() => setLocalCurrentInterval('day')}
-                      className="text-smarthotels-gold focus:ring-smarthotels-gold"
-                    />
-                    <label htmlFor="day" className="text-sm font-medium text-gray-700 min-w-[60px]">
-                      Días
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={localCurrentInterval.startsWith('day') ? localCurrentInterval.replace('day', '') || '1' : '1'}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        if (value && parseInt(value) > 0) {
-                          setLocalCurrentInterval(`day${value}`)
-                        }
-                      }}
-                      className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-smarthotels-gold focus:border-smarthotels-gold"
-                      disabled={!localCurrentInterval.startsWith('day')}
-                    />
-                  </div>
-
-                  {/* Semanas */}
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="radio"
-                      id="week"
-                      name="interval"
-                      value="week"
-                      checked={localCurrentInterval.startsWith('week')}
-                      onChange={() => setLocalCurrentInterval('week')}
-                      className="text-smarthotels-gold focus:ring-smarthotels-gold"
-                    />
-                    <label htmlFor="week" className="text-sm font-medium text-gray-700 min-w-[60px]">
-                      Semanas
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={localCurrentInterval.startsWith('week') ? localCurrentInterval.replace('week', '') || '1' : '1'}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        if (value && parseInt(value) > 0) {
-                          setLocalCurrentInterval(`week${value}`)
-                        }
-                      }}
-                      className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-smarthotels-gold focus:border-smarthotels-gold"
-                      disabled={!localCurrentInterval.startsWith('week')}
-                    />
-                  </div>
-
-                  {/* Meses */}
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="radio"
-                      id="month"
-                      name="interval"
-                      value="month"
-                      checked={localCurrentInterval.startsWith('month')}
-                      onChange={() => setLocalCurrentInterval('month')}
-                      className="text-smarthotels-gold focus:ring-smarthotels-gold"
-                    />
-                    <label htmlFor="month" className="text-sm font-medium text-gray-700 min-w-[60px]">
-                      Meses
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={localCurrentInterval.startsWith('month') ? localCurrentInterval.replace('month', '') || '1' : '1'}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        if (value && parseInt(value) > 0) {
-                          setLocalCurrentInterval(`month${value}`)
-                        }
-                      }}
-                      className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-smarthotels-gold focus:border-smarthotels-gold"
-                      disabled={!localCurrentInterval.startsWith('month')}
-                    />
-                  </div>
-
-                  {/* Años */}
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="radio"
-                      id="year"
-                      name="interval"
-                      value="year"
-                      checked={localCurrentInterval.startsWith('year')}
-                      onChange={() => setLocalCurrentInterval('year')}
-                      className="text-smarthotels-gold focus:ring-smarthotels-gold"
-                    />
-                    <label htmlFor="year" className="text-sm font-medium text-gray-700 min-w-[60px]">
-                      Años
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={localCurrentInterval.startsWith('year') ? localCurrentInterval.replace('year', '') || '1' : '1'}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        if (value && parseInt(value) > 0) {
-                          setLocalCurrentInterval(`year${value}`)
-                        }
-                      }}
-                      className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-smarthotels-gold focus:border-smarthotels-gold"
-                      disabled={!localCurrentInterval.startsWith('year')}
-                    />
-                  </div>
+                  {createIntervalOption('day', 'Días', localCurrentInterval, setLocalCurrentInterval)}
+                  {createIntervalOption('week', 'Semanas', localCurrentInterval, setLocalCurrentInterval)}
+                  {createIntervalOption('month', 'Meses', localCurrentInterval, setLocalCurrentInterval)}
+                  {createIntervalOption('year', 'Años', localCurrentInterval, setLocalCurrentInterval)}
                 </div>
 
                 {/* Botón de Aplicar */}

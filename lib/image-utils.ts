@@ -2,20 +2,6 @@
  * Utilidades para manejo de imágenes de perfil
  */
 
-import { useState, useEffect } from 'react'
-
-/**
- * Obtiene la ruta de la imagen de perfil
- * @param imageName - Nombre del archivo de imagen (opcional)
- * @returns Ruta de la imagen a usar
- */
-export function getProfileImagePath(imageName?: string): string {
-  if (!imageName) {
-    return '/assets/profiles/default.png'
-  }
-  return `/assets/profiles/${imageName}`
-}
-
 /**
  * Verifica si una imagen está vacía (0 bytes) y retorna la imagen por defecto si es así
  * @param imagePath - Ruta de la imagen a verificar
@@ -54,44 +40,4 @@ export async function checkImageAndGetFallback(imagePath: string): Promise<strin
     console.warn('Error al verificar imagen de perfil:', error)
     return '/assets/profiles/default.png'
   }
-}
-
-/**
- * Hook personalizado para manejar imágenes de perfil con fallback automático
- * @param imagePath - Ruta de la imagen a verificar
- * @returns Objeto con la imagen actual y estado de carga
- */
-export function useProfileImage(imagePath: string) {
-  const [currentImage, setCurrentImage] = useState<string>('/assets/profiles/default.png')
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    let isMounted = true
-
-    const checkImage = async () => {
-      setIsLoading(true)
-      try {
-        const validImage = await checkImageAndGetFallback(imagePath)
-        if (isMounted) {
-          setCurrentImage(validImage)
-        }
-      } catch (error) {
-        if (isMounted) {
-          setCurrentImage('/assets/profiles/default.png')
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false)
-        }
-      }
-    }
-
-    checkImage()
-
-    return () => {
-      isMounted = false
-    }
-  }, [imagePath])
-
-  return { currentImage, isLoading }
 }

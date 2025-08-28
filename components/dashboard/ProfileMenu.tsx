@@ -80,14 +80,14 @@ export function ProfileMenu() {
         aria-label="Menú de perfil"
       >
         <div className="relative">
-          <ProfileImage
-            src={userProfileImage}
-            alt="Perfil del Usuario"
-            width={40}
-            height={40}
-            className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
-            priority
-          />
+                      <ProfileImage
+              src={userProfileImage || '/assets/profiles/default.png'}
+              alt="Perfil del Usuario"
+              width={40}
+              height={40}
+              className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
+              priority
+            />
           <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
         </div>
         
@@ -110,7 +110,7 @@ export function ProfileMenu() {
           <div className="px-4 py-3 border-b border-gray-100">
             <div className="flex items-center gap-3">
                              <ProfileImage
-                 src={userProfileImage}
+                 src={userProfileImage || '/assets/profiles/default.png'}
                  alt="Perfil del Usuario"
                  width={48}
                  height={48}

@@ -10,6 +10,7 @@ import { KpiCard } from '@/components/dashboard/KpiCard'
 import { ChartCard } from '@/components/dashboard/ChartCard'
 import { LineChart } from '@/components/dashboard/LineChart'
 import { BarChart } from '@/components/dashboard/BarChart'
+import { SlaDistributionChart } from '@/components/dashboard/SlaDistributionChart'
 import { DynamicBarChart } from '@/components/dashboard/DynamicBarChart'
 import { DonutChart } from '@/components/dashboard/DonutChart'
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton'
@@ -17,7 +18,7 @@ import { useRealDashboardData } from '@/hooks/useRealDashboardData'
 import { useClientTime } from '@/hooks/useClientTime'
 import { useSound } from '@/hooks/useSound'
 import { ParticlesBackground } from '@/components/ui/ParticlesBackground'
-import { getSentimentColor, getLanguageColor, getCategoryColor, getSlaTramColor, getIncidentColor, getIncidentSubcategoryColor } from '@/lib/chart-colors'
+import { getSentimentColor, getLanguageColor, getCategoryColor, getSlaTramColor, getIncidentSubcategoryColor } from '@/lib/chart-colors'
 import { QuickStatsCard } from '@/components/dashboard/QuickStatsCard'
 
 export default function HomePage() {
@@ -327,7 +328,7 @@ export default function HomePage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">📊 Resumen General</h2>
 
           {/* KPIs Row 1 - Métricas principales */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 max-w-6xl mx-auto">
             <KpiCard
               title="Total Emails"
               value={dashboardData.totalEmails !== null ? dashboardData.totalEmails : 'Sin datos'}
@@ -351,10 +352,18 @@ export default function HomePage() {
               variation={dashboardData.sla10minVariation}
               icon="🎯"
             />
+            
+            <KpiCard
+              title="Satisfacción Cliente"
+              value={`${dashboardData.customerSatisfaction.toFixed(1)}/5`}
+              subtitle="Sentimiento del cliente"
+              variation={dashboardData.customerSatisfactionVariation}
+              icon="😊"
+            />
           </div>
 
           {/* KPIs Row 2 - Métricas adicionales */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 max-w-6xl mx-auto">
             <KpiCard
               title="Ingresos Upselling"
               value={`${dashboardData.upsellingRevenue.toFixed(2)}€`}
@@ -366,11 +375,14 @@ export default function HomePage() {
             <KpiCard
               title="💰 Ahorro en Personal"
               value={`${calculatedSavings.toFixed(2)}€`}
-              subtitle={`${savingsAssumptions.minutesPerEmail}min/email × ${savingsAssumptions.hourlyRate}€/h × Total emails`}
+              subtitle={`${savingsAssumptions.minutesPerEmail}min/email × ${savingsAssumptions.hourlyRate}€/h`}
               variation={dashboardData.personalSavingsVariation}
               extraContent={
               <button
-                onClick={() => setSavingsAssumptions(prev => ({ ...prev, showConfig: true }))}
+                onClick={() => {
+                  playClick()
+                  setSavingsAssumptions(prev => ({ ...prev, showConfig: true }))
+                }}
                   className="absolute top-3 right-3 inline-flex items-center gap-1 px-2 py-1 bg-white border-2 border-smarthotels-gold text-smarthotels-gold text-xs font-medium rounded-lg hover:bg-smarthotels-gold hover:text-white transform hover:scale-105 transition-all duration-200 shadow-sm hover:shadow-smarthotels-gold-lg"
                   title="Configurar parámetros de ahorro"
                 >
@@ -388,24 +400,35 @@ export default function HomePage() {
               subtitle="Requieren supervisión"
               variation={dashboardData.interventionPercentageVariation}
             />
+            
+            <KpiCard
+              title="% Sin Responder"
+              value={`${dashboardData.unansweredEmailsPercentage.toFixed(1)}%`}
+              subtitle="Emails sin respuesta"
+              variation={dashboardData.unansweredEmailsPercentageVariation}
+              icon="⚠️"
+            />
           </div>
 
           {/* Modal de Configuración de Ahorro */}
           {savingsAssumptions.showConfig && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 pt-20">
-              <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full transform transition-all duration-300 scale-100 max-h-[80vh] overflow-y-auto">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full transform transition-all duration-300 scale-100 max-h-[70vh] overflow-hidden">
                 {/* Header */}
-                <div className="bg-white border-b-2 border-smarthotels-gold p-4 rounded-t-2xl">
+                <div className="bg-gradient-to-r from-smarthotels-gold to-yellow-500 border-b-2 border-smarthotels-gold p-3 rounded-t-2xl">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-lg font-bold text-slate-800">Configurar Cálculo de Ahorro</h3>
-                      <p className="text-slate-600 text-xs mt-1">
+                      <h3 className="text-lg font-bold text-white">⚙️ Configurar Cálculo de Ahorro</h3>
+                      <p className="text-white/90 text-sm mt-1">
                         Personaliza los parámetros para tu hotel
                       </p>
                     </div>
                     <button
-                      onClick={() => setSavingsAssumptions(prev => ({ ...prev, showConfig: false }))}
-                      className="text-slate-400 hover:text-smarthotels-gold transition-colors"
+                      onClick={() => {
+                        playClick()
+                        setSavingsAssumptions(prev => ({ ...prev, showConfig: false }))
+                      }}
+                      className="text-white hover:text-white/80 transition-colors p-1 hover:bg-white/20 rounded-full"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -415,31 +438,56 @@ export default function HomePage() {
                 </div>
                 
                 {/* Content */}
-                <div className="p-4 space-y-4">
+                <div className="p-3 space-y-3">
                   {/* Minutos por Email */}
                   <div className="space-y-2">
                     <label className="block text-sm font-semibold text-gray-700">
                       ⏱️ Tiempo por Email
                     </label>
+                    
+                    {/* Slider */}
                     <div className="relative">
                       <input
-                        type="number"
+                        type="range"
                         min="1"
-                        max="60"
+                        max="30"
                         value={savingsAssumptions.minutesPerEmail}
                         onChange={(e) => setSavingsAssumptions(prev => ({
                           ...prev,
                           minutesPerEmail: parseInt(e.target.value) || 5
                         }))}
-                        className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-smarthotels-gold focus:ring-2 focus:ring-smarthotels-gold/20 transition-all duration-200 text-base font-medium"
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                        style={{
+                          background: `linear-gradient(to right, #d4af37 0%, #d4af37 ${(savingsAssumptions.minutesPerEmail - 1) / 29 * 100}%, #e5e7eb ${(savingsAssumptions.minutesPerEmail - 1) / 29 * 100}%, #e5e7eb 100%)`
+                        }}
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>1 min</span>
+                        <span>30 min</span>
+                      </div>
+                    </div>
+                    
+                    {/* Input numérico */}
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="1"
+                        max="30"
+                        value={savingsAssumptions.minutesPerEmail}
+                        onChange={(e) => setSavingsAssumptions(prev => ({
+                          ...prev,
+                          minutesPerEmail: parseInt(e.target.value) || 5
+                        }))}
+                        className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-smarthotels-gold focus:ring-2 focus:ring-smarthotels-gold/20 transition-all duration-200 text-base font-medium text-center"
                         placeholder="5"
                       />
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 font-medium text-sm">
                         min
                       </div>
                     </div>
+                    
                     <p className="text-xs text-gray-500">
-                      Tiempo promedio que tarda un empleado en gestionar un email (considerando todos los emails del período)
+                      Tiempo promedio que tarda un empleado en gestionar un email
                     </p>
                   </div>
                   
@@ -448,6 +496,31 @@ export default function HomePage() {
                     <label className="block text-sm font-semibold text-gray-700">
                       💰 Precio Bruto por Hora
                     </label>
+                    
+                    {/* Slider */}
+                    <div className="relative">
+                      <input
+                        type="range"
+                        min="1"
+                        max="100"
+                        step="1"
+                        value={savingsAssumptions.hourlyRate}
+                        onChange={(e) => setSavingsAssumptions(prev => ({
+                          ...prev,
+                          hourlyRate: parseFloat(e.target.value) || 20
+                        }))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                        style={{
+                          background: `linear-gradient(to right, #d4af37 0%, #d4af37 ${(savingsAssumptions.hourlyRate - 1) / 99 * 100}%, #e5e7eb ${(savingsAssumptions.hourlyRate - 1) / 99 * 100}%, #e5e7eb 100%)`
+                        }}
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>1€/h</span>
+                        <span>100€/h</span>
+                      </div>
+                    </div>
+                    
+                    {/* Input numérico */}
                     <div className="relative">
                       <input
                         type="number"
@@ -459,21 +532,22 @@ export default function HomePage() {
                           ...prev,
                           hourlyRate: parseFloat(e.target.value) || 20
                         }))}
-                        className="w-full px-3 py-2 border-2 border-gray-2 focus:border-smarthotels-gold focus:ring-2 focus:ring-smarthotels-gold/20 transition-all duration-200 text-base font-medium"
+                        className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-smarthotels-gold focus:ring-2 focus:ring-smarthotels-gold/20 transition-all duration-200 text-base font-medium text-center"
                         placeholder="20.00"
                       />
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 font-medium text-sm">
                         €/h
                       </div>
                     </div>
+                    
                     <p className="text-xs text-gray-500">
                       Coste bruto por hora de personal del hotel
                     </p>
                   </div>
                   
                   {/* Preview del Cálculo */}
-                  <div className="bg-gradient-to-r from-amber-50 to-yellow-50 p-3 rounded-lg border border-smarthotels-gold/30">
-                    <h4 className="text-sm font-semibold text-slate-800 mb-2">📊 Vista Previa del Cálculo</h4>
+                  <div className="bg-gradient-to-r from-smarthotels-marble to-marble-veins p-2 rounded-lg border border-smarthotels-gold/30">
+                    <h4 className="text-sm font-semibold text-slate-800 mb-1">📊 Vista Previa del Cálculo</h4>
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
                         <span className="text-slate-600">Total Emails:</span>
@@ -496,16 +570,22 @@ export default function HomePage() {
                 </div>
                 
                 {/* Actions */}
-                <div className="px-4 pb-4">
+                <div className="px-3 pb-3">
                   <div className="flex gap-3">
                     <button
-                      onClick={() => setSavingsAssumptions(prev => ({ ...prev, showConfig: false }))}
+                      onClick={() => {
+                        playClick()
+                        setSavingsAssumptions(prev => ({ ...prev, showConfig: false }))
+                      }}
                       className="flex-1 px-3 py-2 bg-white border-2 border-gray-200 text-gray-700 rounded-lg font-medium hover:border-gray-300 hover:bg-gray-50 transition-all duration-200"
                     >
                       Cancelar
                     </button>
                     <button
-                      onClick={() => setSavingsAssumptions(prev => ({ ...prev, showConfig: false }))}
+                      onClick={() => {
+                        playClick()
+                        setSavingsAssumptions(prev => ({ ...prev, showConfig: false }))
+                      }}
                       className="flex-1 px-3 py-2 bg-smarthotels-gold text-white rounded-lg font-medium hover:bg-yellow-600 transform hover:scale-105 transition-all duration-200 shadow-sm hover:shadow-smarthotels-gold-lg"
                     >
                       Guardar Cambios
@@ -620,13 +700,8 @@ export default function HomePage() {
                 title="Distribución SLA Completa"
                 subtitle="Porcentaje de emails por tramo de tiempo de respuesta"
               >
-                <BarChart
-                  data={dashboardData.slaTram.map((item) => ({
-                    name: item.name,
-                    value: item.value,
-                    color: getSlaTramColor(item.name)
-                  }))}
-                  title="Distribución SLA por Tramos (%)"
+                <SlaDistributionChart
+                  data={dashboardData.slaTram}
                   height={300}
                 />
               </ChartCard>
@@ -636,6 +711,44 @@ export default function HomePage() {
           {/* Upselling Section */}
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">💰 Oportunidades de Revenue - Upselling</h2>
+            
+            {/* KPIs de Upselling */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+              <KpiCard
+                title="📧 Total Ofertas Enviadas"
+                value={dashboardData.upsellingByMonth && dashboardData.upsellingByMonth.length > 0 
+                  ? dashboardData.upsellingByMonth.reduce((sum, item) => sum + item.offersSent, 0)
+                  : 0}
+              />
+              
+              <KpiCard
+                title="✅ Total Ofertas Convertidas"
+                value={dashboardData.upsellingByMonth && dashboardData.upsellingByMonth.length > 0 
+                  ? dashboardData.upsellingByMonth.reduce((sum, item) => {
+                      const converted = Math.round((item.offersSent * item.conversionRate) / 100)
+                      return sum + converted
+                    }, 0)
+                  : 0}
+              />
+              
+              <KpiCard
+                title="📊 Tasa Conversión Media"
+                value={`${dashboardData.upsellingByMonth && dashboardData.upsellingByMonth.length > 0 
+                  ? (dashboardData.upsellingByMonth.reduce((sum, item) => sum + item.conversionRate, 0) / dashboardData.upsellingByMonth.length).toFixed(1)
+                  : 0}%`}
+              />
+              
+              <KpiCard
+                title="🎯 Tasa de Oferta Media"
+                value={`${dashboardData.upsellingByMonth && dashboardData.upsellingByMonth.length > 0 
+                  ? (dashboardData.upsellingByMonth.reduce((sum, item) => {
+                      const totalEmails = item.totalEmailsInterval || 0
+                      const offersSent = item.offersSent || 0
+                      return totalEmails > 0 ? sum + (offersSent / totalEmails) * 100 : sum
+                    }, 0) / dashboardData.upsellingByMonth.length).toFixed(1)
+                  : 0}%`}
+              />
+            </div>
             
             {/* Gráficos de upselling lado a lado */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -652,38 +765,15 @@ export default function HomePage() {
                     offersConverted: Math.round((item.offersSent * item.conversionRate) / 100),
                     conversionRate: item.conversionRate,
                     intervalType: item.intervalType,
-                    totalEmails: dashboardData.totalEmails
+                    totalEmails: item.totalEmailsInterval
                   }))}
                   lines={[
                     { key: 'offersSent', color: '#3B82F6', label: 'Ofertas Enviadas' },
                     { key: 'offersConverted', color: '#10B981', label: 'Ofertas Convertidas' }
                   ]}
-                  height={250}
+                  height={300}
                   showDetailedTooltip={true}
                 />
-                
-                {/* Información adicional debajo del gráfico */}
-                <div className="mt-4 grid grid-cols-2 gap-4 text-center">
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <div className="text-lg font-semibold text-blue-600">
-                      {dashboardData.upsellingByMonth && dashboardData.upsellingByMonth.length > 0 
-                        ? dashboardData.upsellingByMonth.reduce((sum, item) => sum + item.offersSent, 0)
-                        : 0}
-                    </div>
-                    <div className="text-sm text-blue-600">Total Enviadas</div>
-                  </div>
-                  <div className="bg-green-50 p-3 rounded-lg">
-                    <div className="text-lg font-semibold text-green-600">
-                      {dashboardData.upsellingByMonth && dashboardData.upsellingByMonth.length > 0 
-                        ? dashboardData.upsellingByMonth.reduce((sum, item) => {
-                            const converted = Math.round((item.offersSent * item.conversionRate) / 100)
-                            return sum + converted
-                          }, 0)
-                        : 0}
-                    </div>
-                    <div className="text-sm text-green-600">Total Convertidas</div>
-                  </div>
-                </div>
               </ChartCard>
               
               {/* Gráfico de barras dinámico con ganancias estimadas */}
@@ -698,7 +788,7 @@ export default function HomePage() {
                     intervalType: item.intervalType,
                     intervalName: item.intervalName
                   }))}
-                  height={250}
+                  height={300}
                   showDetailedTooltip={true}
                 />
               </ChartCard>
@@ -712,25 +802,25 @@ export default function HomePage() {
             {/* KPIs de Incidencias */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
               <KpiCard
-                title="Total Incidencias"
+                title="🚨 Total Incidencias"
                 value={dashboardData.incidencias.total}
                 variation={dashboardData.incidencias.totalVariation}
               />
               
               <KpiCard
-                title="Tiempo Promedio Gestión"
+                title="⏰ Tiempo Medio Gestión"
                 value={`${dashboardData.incidencias.avgManagementDelay} min`}
                 variation={dashboardData.incidencias.avgManagementDelayVariation}
               />
               
               <KpiCard
-                title="Tiempo Promedio Resolución"
+                title="🔧 Tiempo Medio Resolución"
                 value={`${dashboardData.incidencias.avgResolutionDelay} min`}
                 variation={dashboardData.incidencias.avgResolutionDelayVariation}
               />
               
               <KpiCard
-                title="Clicks Reseña"
+                title="⭐ Clicks Reseña"
                 value={dashboardData.incidencias.reviewClicks}
                 variation={dashboardData.incidencias.reviewClicksVariation}
               />

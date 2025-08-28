@@ -58,25 +58,14 @@ export const LineChart: React.FC<LineChartProps> = ({
                   </p>
                 )}
                 
-                {/* Porcentaje de ofertas enviadas respecto al total de emails */}
+                {/* Tasa de Oferta */}
                 {currentData.offersSent !== undefined && currentData.totalEmails && currentData.totalEmails > 0 && (
                   <p className="text-xs text-gray-600 flex items-center gap-1">
                     <span className="text-blue-500">📧</span>
-                    <span className="font-medium">% Emails con Oferta:</span> {((currentData.offersSent / currentData.totalEmails) * 100).toFixed(1)}%
+                    <span className="font-medium">Tasa de Oferta:</span> {((currentData.offersSent / currentData.totalEmails) * 100).toFixed(1)}%
                   </p>
                 )}
-                {currentData.managementDelay !== undefined && (
-                  <p className="text-xs text-gray-600 flex items-center gap-1">
-                    <span className="text-smarthotels-gold">⏰</span>
-                    <span className="font-medium">Gestión:</span> {currentData.managementDelay} min
-                  </p>
-                )}
-                {currentData.resolutionDelay !== undefined && (
-                  <p className="text-xs text-gray-600 flex items-center gap-1">
-                    <span className="text-smarthotels-gold">✅</span>
-                    <span className="font-medium">Resolución:</span> {currentData.resolutionDelay} min
-                  </p>
-                )}
+
                 {currentData.automatic !== undefined && currentData.total && currentData.total > 0 && (
                   <p className="text-xs text-gray-600 flex items-center gap-1">
                     <span className="text-smarthotels-gold">🤖</span>

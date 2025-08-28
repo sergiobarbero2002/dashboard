@@ -75,38 +75,32 @@ export const CHART_COLORS = {
   }
 }
 
-// Función helper para obtener colores de cualquier tipo
-export const getChartColor = (type: keyof typeof CHART_COLORS, name: string): string => {
-  const colorMap = CHART_COLORS[type] as Record<string, string>
-  return colorMap[name] || '#6C757D'
-}
-
 // Función para obtener colores de sentimiento
 export const getSentimentColor = (sentiment: string): string => {
-  return getChartColor('sentiment', sentiment)
+  const colorMap = CHART_COLORS.sentiment as Record<string, string>
+  return colorMap[sentiment] || '#6C757D'
 }
 
 // Función para obtener colores de idioma
 export const getLanguageColor = (language: string): string => {
-  return getChartColor('language', language)
+  const colorMap = CHART_COLORS.language as Record<string, string>
+  return colorMap[language] || '#6C757D'
 }
 
 // Función para obtener colores de categoría
 export const getCategoryColor = (category: string): string => {
-  return getChartColor('category', category)
+  const colorMap = CHART_COLORS.category as Record<string, string>
+  return colorMap[category] || '#6C757D'
 }
 
 // Función para obtener colores de SLA
 export const getSlaTramColor = (slaTram: string): string => {
-  return getChartColor('slaTram', slaTram)
-}
-
-// Función para obtener colores de incidencias
-export const getIncidentColor = (incident: string): string => {
-  return getChartColor('incidents', incident)
+  const colorMap = CHART_COLORS.slaTram as Record<string, string>
+  return colorMap[slaTram] || '#6C757D'
 }
 
 // Función para obtener colores de subcategorías de incidencias
 export const getIncidentSubcategoryColor = (subcategory: string): string => {
-  return getChartColor('incidentSubcategories', subcategory)
+  const colorMap = CHART_COLORS.incidentSubcategories as Record<string, string>
+  return colorMap[subcategory] || '#6C757D'
 }
