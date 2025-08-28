@@ -43,6 +43,7 @@ export const SlaDistributionChart: React.FC<SlaDistributionChartProps> = ({
         <div className="text-center">
           <p className="text-lg font-medium">No hay datos disponibles</p>
           <p className="text-sm">Selecciona un rango de fechas diferente</p>
+          <p className="text-xs mt-2">Debug: {JSON.stringify(data)}</p>
         </div>
       </div>
     )
@@ -52,7 +53,7 @@ export const SlaDistributionChart: React.FC<SlaDistributionChartProps> = ({
   const chartData = [...data]
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full" style={{ height: `${height}px` }}>
       {title && (
         <h4 className="text-center text-sm font-medium text-gray-600 mb-4">{title}</h4>
       )}
@@ -90,8 +91,6 @@ export const SlaDistributionChart: React.FC<SlaDistributionChartProps> = ({
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-      
-
     </div>
   )
 }

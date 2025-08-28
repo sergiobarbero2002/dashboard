@@ -29,7 +29,7 @@ export default function HomePage() {
   const hasShownWelcome = useRef(false)
   const [savingsAssumptions, setSavingsAssumptions] = useState({ 
     minutesPerEmail: 5, 
-    hourlyRate: 20, 
+    hourlyRate: 14.5, 
     showConfig: false 
   })
   const { currentTime, mounted: timeMounted } = useClientTime()
@@ -91,6 +91,8 @@ export default function HomePage() {
       hasShownWelcome.current = true
     }
   }, [dashboardData, dataLoading, lastUpdated, playSuccess])
+
+
 
   useEffect(() => {
     setMounted(true)
@@ -328,7 +330,7 @@ export default function HomePage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">📊 Resumen General</h2>
 
           {/* KPIs Row 1 - Métricas principales */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <KpiCard
               title="Total Emails"
               value={dashboardData.totalEmails !== null ? dashboardData.totalEmails : 'Sin datos'}
@@ -363,7 +365,7 @@ export default function HomePage() {
           </div>
 
           {/* KPIs Row 2 - Métricas adicionales */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <KpiCard
               title="Ingresos Upselling"
               value={`${dashboardData.upsellingRevenue.toFixed(2)}€`}
@@ -491,32 +493,32 @@ export default function HomePage() {
                     </p>
                   </div>
                   
-                  {/* Precio por Hora */}
+                  {/* Coste Real Anual de un Recepcionista */}
                   <div className="space-y-2">
                     <label className="block text-sm font-semibold text-gray-700">
-                      💰 Precio Bruto por Hora
+                      💰 Coste Real Anual de un Recepcionista
                     </label>
                     
                     {/* Slider */}
                     <div className="relative">
                       <input
                         type="range"
-                        min="1"
-                        max="100"
-                        step="1"
-                        value={savingsAssumptions.hourlyRate}
+                        min="15000"
+                        max="50000"
+                        step="500"
+                        value={savingsAssumptions.hourlyRate * 1600}
                         onChange={(e) => setSavingsAssumptions(prev => ({
                           ...prev,
-                          hourlyRate: parseFloat(e.target.value) || 20
+                          hourlyRate: Math.round(parseFloat(e.target.value) / 1600 * 100) / 100
                         }))}
                         className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                         style={{
-                          background: `linear-gradient(to right, #d4af37 0%, #d4af37 ${(savingsAssumptions.hourlyRate - 1) / 99 * 100}%, #e5e7eb ${(savingsAssumptions.hourlyRate - 1) / 99 * 100}%, #e5e7eb 100%)`
+                          background: `linear-gradient(to right, #d4af37 0%, #d4af37 ${((savingsAssumptions.hourlyRate * 1600) - 15000) / 35000 * 100}%, #e5e7eb ${((savingsAssumptions.hourlyRate * 1600) - 15000) / 35000 * 100}%, #e5e7eb 100%)`
                         }}
                       />
                       <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>1€/h</span>
-                        <span>100€/h</span>
+                        <span>15.000€</span>
+                        <span>50.000€</span>
                       </div>
                     </div>
                     
@@ -524,24 +526,24 @@ export default function HomePage() {
                     <div className="relative">
                       <input
                         type="number"
-                        min="1"
-                        max="100"
-                        step="0.5"
-                        value={savingsAssumptions.hourlyRate}
+                        min="15000"
+                        max="50000"
+                        step="500"
+                        value={Math.round(savingsAssumptions.hourlyRate * 1600)}
                         onChange={(e) => setSavingsAssumptions(prev => ({
                           ...prev,
-                          hourlyRate: parseFloat(e.target.value) || 20
+                          hourlyRate: Math.round(parseFloat(e.target.value) / 1600 * 100) / 100
                         }))}
                         className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-smarthotels-gold focus:ring-2 focus:ring-smarthotels-gold/20 transition-all duration-200 text-base font-medium text-center"
-                        placeholder="20.00"
+                        placeholder="26000"
                       />
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 font-medium text-sm">
-                        €/h
+                        €/año
                       </div>
                     </div>
                     
                     <p className="text-xs text-gray-500">
-                      Coste bruto por hora de personal del hotel
+                      Coste real anual incluyendo salario, impuestos, seguridad social, etc.
                     </p>
                   </div>
                   
@@ -719,6 +721,7 @@ export default function HomePage() {
                 value={dashboardData.upsellingByMonth && dashboardData.upsellingByMonth.length > 0 
                   ? dashboardData.upsellingByMonth.reduce((sum, item) => sum + item.offersSent, 0)
                   : 0}
+                variation={dashboardData.upsellingVariations?.totalOffersSent}
               />
               
               <KpiCard
@@ -729,6 +732,7 @@ export default function HomePage() {
                       return sum + converted
                     }, 0)
                   : 0}
+                variation={dashboardData.upsellingVariations?.totalOffersConverted}
               />
               
               <KpiCard
@@ -736,6 +740,7 @@ export default function HomePage() {
                 value={`${dashboardData.upsellingByMonth && dashboardData.upsellingByMonth.length > 0 
                   ? (dashboardData.upsellingByMonth.reduce((sum, item) => sum + item.conversionRate, 0) / dashboardData.upsellingByMonth.length).toFixed(1)
                   : 0}%`}
+                variation={dashboardData.upsellingVariations?.avgConversionRate}
               />
               
               <KpiCard
@@ -747,6 +752,7 @@ export default function HomePage() {
                       return totalEmails > 0 ? sum + (offersSent / totalEmails) * 100 : sum
                     }, 0) / dashboardData.upsellingByMonth.length).toFixed(1)
                   : 0}%`}
+                variation={dashboardData.upsellingVariations?.avgOfferRate}
               />
             </div>
             

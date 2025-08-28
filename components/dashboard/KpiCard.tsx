@@ -27,6 +27,7 @@ export const KpiCard: React.FC<KpiCardProps> = ({
 }) => {
   const getVariationIcon = () => {
     if (!variation) return <Minus className="h-4 w-4 text-gray-400" />
+    if (variation.percentage === 0) return <Minus className="h-4 w-4 text-gray-400" />
     if (variation.isIncrease) return <TrendingUp className="h-4 w-4 text-green-500" />
     return <TrendingDown className="h-4 w-4 text-red-500" />
   }
@@ -69,6 +70,7 @@ export const KpiCard: React.FC<KpiCardProps> = ({
                 {getVariationIcon()}
                 <span className={cn(
                   'font-medium',
+                  variation.percentage === 0 ? 'text-gray-500' : 
                   variation.isIncrease ? 'text-green-500' : 'text-red-500'
                 )}>
                   {variation.percentage.toFixed(1)}%

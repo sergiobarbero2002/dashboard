@@ -873,6 +873,40 @@ export async function GET(request: NextRequest) {
       upsellingByIntervalResult = { rows: [] }
     }
 
+    // 13b. UPSELLING POR INTERVALO PARA PERÍODO DE COMPARACIÓN
+    let comparisonUpsellingByIntervalResult: any = { rows: [] }
+    if (comparisonPeriodData) {
+      try {
+        const optimalInterval = getOptimalInterval(from, to, interval)
+        
+        const upsellingQuery = generateUpsellingQuery(
+          optimalInterval.type, 
+          optimalInterval.quantity, 
+          hotelFilter
+        )
+        
+        // Usar las fechas del período anterior
+        const compareFromDate = (() => {
+          const fromDate = new Date(from)
+          const toDate = new Date(to)
+          const daysDiff = Math.ceil((toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24))
+          const previousFrom = new Date(fromDate.getTime() - (daysDiff * 24 * 60 * 60 * 1000))
+          return previousFrom.toISOString().split('T')[0]
+        })()
+        
+        const compareToDate = (() => {
+          const fromDate = new Date(from)
+          const previousTo = new Date(fromDate.getTime() - (24 * 60 * 60 * 1000))
+          return previousTo.toISOString().split('T')[0]
+        })()
+        
+        comparisonUpsellingByIntervalResult = await query(tenantId, upsellingQuery, getQueryParams(compareFromDate, compareToDate))
+      } catch (error) {
+        console.error('❌ Error upselling por intervalo (comparación):', error)
+        comparisonUpsellingByIntervalResult = { rows: [] }
+      }
+    }
+
     // ===== SECCIÓN 5: INCIDENCIAS =====
     
     // 14. ESTADÍSTICAS GENERALES DE INCIDENCIAS
@@ -995,13 +1029,22 @@ export async function GET(request: NextRequest) {
       color: getCategoryColor(row.main_category)
     }))
 
-    const slaTramData = slaTramResult.rows.map((row: any) => ({
-      name: row.sla_tramo,
-      value: parseInt(row.total),
-      totalEmailsPeriod: parseInt(row.total), // Usar el total de emails del tramo específico
-      color: getSlaTramColor(row.sla_tramo)
-    }))
-
+    // Calcular total de emails para porcentajes
+    const totalSlaEmails = slaTramResult.rows.reduce((sum: number, row: any) => sum + parseInt(row.total || 0), 0)
+    
+      const slaTramData = slaTramResult.rows.map((row: any) => {
+      const total = parseInt(row.total || 0)
+      const percentage = totalSlaEmails > 0 ? (total / totalSlaEmails) * 100 : 0
+      
+      return {
+        name: row.sla_tramo,
+        value: Math.round(percentage * 10) / 10, // Porcentaje con 1 decimal
+        totalEmailsPeriod: total, // Total de emails en ese tramo
+        color: getSlaTramColor(row.sla_tramo)
+      }
+    })
+    
+  
           // ===== OBJETO FINAL COMPLETO =====
       const data = {
         // ===== KPIs PRINCIPALES =====
@@ -1018,25 +1061,14 @@ export async function GET(request: NextRequest) {
         unansweredEmailsPercentage: currentPeriodData.emails.rows.length > 0 && currentPeriodData.emails.rows[0]?.total_emails > 0 
           ? Math.round(((parseInt(currentPeriodData.emails.rows[0]?.emails_unanswered || 0) / parseInt(currentPeriodData.emails.rows[0]?.total_emails || 1)) * 100) * 10) / 10
           : 0,
-        unansweredEmailsPercentageVariation: comparisonPeriodData ? (() => {
-          const currentPercentage = currentPeriodData.emails.rows.length > 0 && currentPeriodData.emails.rows[0]?.total_emails > 0 
+        unansweredEmailsPercentageVariation: comparisonPeriodData ? calculateVariation(
+          currentPeriodData.emails.rows.length > 0 && currentPeriodData.emails.rows[0]?.total_emails > 0 
             ? Math.round(((parseInt(currentPeriodData.emails.rows[0]?.emails_unanswered || 0) / parseInt(currentPeriodData.emails.rows[0]?.total_emails || 1)) * 100) * 10) / 10
-            : 0
-          const previousPercentage = comparisonPeriodData.emails.rows.length > 0 && comparisonPeriodData.emails.rows[0]?.total_emails > 0 
+            : 0,
+          comparisonPeriodData.emails.rows.length > 0 && comparisonPeriodData.emails.rows[0]?.total_emails > 0 
             ? Math.round(((parseInt(comparisonPeriodData.emails.rows[0]?.emails_unanswered || 0) / parseInt(comparisonPeriodData.emails.rows[0]?.total_emails || 1)) * 100) * 10) / 10
             : 0
-          
-          console.log('🔍 Debug % Sin Responder:', {
-            current: currentPercentage,
-            previous: previousPercentage,
-            currentUnanswered: currentPeriodData.emails.rows[0]?.emails_unanswered,
-            currentTotal: currentPeriodData.emails.rows[0]?.total_emails,
-            previousUnanswered: comparisonPeriodData.emails.rows[0]?.emails_unanswered,
-            previousTotal: comparisonPeriodData.emails.rows[0]?.total_emails
-          })
-          
-          return calculateVariation(currentPercentage, previousPercentage)
-        })() : null,
+        ) : null,
         emailsManual: currentPeriodData.emails.rows.length > 0 ? parseInt(currentPeriodData.emails.rows[0]?.emails_manual || 0) : null,
         emailsManualVariation: comparisonPeriodData ? calculateVariation(
           currentPeriodData.emails.rows.length > 0 ? parseInt(currentPeriodData.emails.rows[0]?.emails_manual || 0) : 0,
@@ -1114,6 +1146,54 @@ export async function GET(request: NextRequest) {
           intervalName: row.interval_name
         }
       }),
+
+      // Variaciones para KPIs de upselling
+      upsellingVariations: {
+        totalOffersSent: (() => {
+          const current = upsellingByIntervalResult.rows.reduce((sum: number, row: any) => sum + parseInt(row.offers_sent || 0), 0)
+          const previous = comparisonUpsellingByIntervalResult.rows.reduce((sum: number, row: any) => sum + parseInt(row.offers_sent || 0), 0)
+          console.log('🔍 Debug totalOffersSent:', { current, previous })
+          return comparisonPeriodData ? calculateVariation(current, previous) : null
+        })(),
+        totalOffersConverted: (() => {
+          const current = upsellingByIntervalResult.rows.reduce((sum: number, row: any) => {
+            const offersSent = parseInt(row.offers_sent || 0)
+            const conversionRate = parseFloat(row.conversion_rate || 0)
+            return sum + Math.round((offersSent * conversionRate) / 100)
+          }, 0)
+          const previous = comparisonUpsellingByIntervalResult.rows.reduce((sum: number, row: any) => {
+            const offersSent = parseInt(row.offers_sent || 0)
+            const conversionRate = parseFloat(row.conversion_rate || 0)
+            return sum + Math.round((offersSent * conversionRate) / 100)
+          }, 0)
+          console.log('🔍 Debug totalOffersConverted:', { current, previous })
+          return comparisonPeriodData ? calculateVariation(current, previous) : null
+        })(),
+        avgConversionRate: (() => {
+          const current = upsellingByIntervalResult.rows.length > 0 ? 
+            upsellingByIntervalResult.rows.reduce((sum: number, row: any) => sum + parseFloat(row.conversion_rate || 0), 0) / upsellingByIntervalResult.rows.length : 0
+          const previous = comparisonUpsellingByIntervalResult.rows.length > 0 ? 
+            comparisonUpsellingByIntervalResult.rows.reduce((sum: number, row: any) => sum + parseFloat(row.conversion_rate || 0), 0) / comparisonUpsellingByIntervalResult.rows.length : 0
+          console.log('🔍 Debug avgConversionRate:', { current, previous })
+          return comparisonPeriodData ? calculateVariation(current, previous) : null
+        })(),
+        avgOfferRate: (() => {
+          const current = upsellingByIntervalResult.rows.length > 0 ? 
+            upsellingByIntervalResult.rows.reduce((sum: number, row: any) => {
+              const totalEmails = parseInt(row.total_emails_interval || 0)
+              const offersSent = parseInt(row.offers_sent || 0)
+              return totalEmails > 0 ? sum + (offersSent / totalEmails) * 100 : sum
+            }, 0) / upsellingByIntervalResult.rows.length : 0
+          const previous = comparisonUpsellingByIntervalResult.rows.length > 0 ? 
+            comparisonUpsellingByIntervalResult.rows.reduce((sum: number, row: any) => {
+              const totalEmails = parseInt(row.total_emails_interval || 0)
+              const offersSent = parseInt(row.offers_sent || 0)
+              return totalEmails > 0 ? sum + (offersSent / totalEmails) * 100 : sum
+            }, 0) / comparisonUpsellingByIntervalResult.rows.length : 0
+          console.log('🔍 Debug avgOfferRate:', { current, previous })
+          return comparisonPeriodData ? calculateVariation(current, previous) : null
+        })()
+      },
       
       // ===== INCIDENCIAS =====
       incidencias: {
@@ -1154,11 +1234,9 @@ export async function GET(request: NextRequest) {
           }
         })
       }
-      
-
-      
-
     }
+    
+
 
     // ===== ANÁLISIS COMPLETO =====
     console.log()

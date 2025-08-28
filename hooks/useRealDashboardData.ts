@@ -44,6 +44,14 @@ export interface DashboardData {
   // Upselling por mes (ofertas enviadas y conversión)
   upsellingByMonth: Array<{ name: string; offersSent: number; conversionRate: number; totalEmailsInterval: number; intervalType?: string; intervalName?: string }>
   
+  // Variaciones para KPIs de upselling
+  upsellingVariations?: {
+    totalOffersSent?: { percentage: number; isIncrease: boolean }
+    totalOffersConverted?: { percentage: number; isIncrease: boolean }
+    avgConversionRate?: { percentage: number; isIncrease: boolean }
+    avgOfferRate?: { percentage: number; isIncrease: boolean }
+  }
+  
   // Incidencias
   incidencias: {
     total: number
@@ -220,6 +228,11 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
       setLastUpdated(new Date())
       setError(null)
       
+      // Reproducir sonido de éxito cuando se completan los datos
+      if (rawData.totalEmails && rawData.totalEmails > 0) {
+        playSuccess()
+      }
+      
       console.log('✅ === DATOS PROCESADOS Y GUARDADOS ===')
       console.log('🏁 === fetchData EJECUCIÓN COMPLETADA ===')
       
@@ -267,17 +280,8 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
     // SLA por tramos (convertir a porcentajes)
     
     // Calcular el total de emails para calcular porcentajes
-    const totalSlaEmails = rawData.slaTram?.reduce((sum: number, item: any) => sum + (item.totalEmailsPeriod || 0), 0) || 0
-    
-    const slaTramData = rawData.slaTram?.map((item: any) => {
-      const percentage = totalSlaEmails > 0 ? ((item.totalEmailsPeriod || 0) / totalSlaEmails) * 100 : 0
-      return {
-        name: item.name,
-        value: Number(percentage.toFixed(1)),
-        totalEmailsPeriod: item.totalEmailsPeriod || 0,
-        color: getSlaTramColor(item.name)
-      }
-    }) || [
+    // Los datos de SLA ya vienen procesados desde la API
+    const slaTramData = rawData.slaTram || [
       { name: '<10min', value: 0, totalEmailsPeriod: 0, color: getSlaTramColor('<10min') },
       { name: '10min-1h', value: 0, totalEmailsPeriod: 0, color: getSlaTramColor('10min-1h') },
       { name: '1-4h', value: 0, totalEmailsPeriod: 0, color: getSlaTramColor('1-4h') },
@@ -331,6 +335,9 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
       
       // Upselling por mes (ofertas enviadas y conversión)
       upsellingByMonth: rawData.upsellingByMonth || [],
+      
+      // Variaciones para KPIs de upselling
+      upsellingVariations: rawData.upsellingVariations || undefined,
       
       // Incidencias (las variaciones ya vienen de la API)
       incidencias: {

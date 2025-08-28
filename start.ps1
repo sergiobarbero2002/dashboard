@@ -21,4 +21,4 @@ Get-Content .env.local | ForEach-Object {
 
 Write-Host ""
 Write-Host "Variables cargadas. Lanzando servidor..." -ForegroundColor Green
-npm run build
+npm run dev
