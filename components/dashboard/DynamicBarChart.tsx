@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts'
+import { InfoTooltip } from '@/components/ui/InfoTooltip'
 
 interface DynamicBarChartProps {
   data: Array<{ 
@@ -18,6 +19,8 @@ interface DynamicBarChartProps {
   xAxisLabel?: string
   yAxisLabel?: string
   showDetailedTooltip?: boolean
+  infoContent?: string
+  infoTitle?: string
 }
 
 export const DynamicBarChart: React.FC<DynamicBarChartProps> = ({
@@ -26,7 +29,9 @@ export const DynamicBarChart: React.FC<DynamicBarChartProps> = ({
   height = 300,
   xAxisLabel,
   yAxisLabel,
-  showDetailedTooltip = false
+  showDetailedTooltip = false,
+  infoContent,
+  infoTitle
 }) => {
   // Función para generar color basado en el valor (verde oscuro para mayor, rojo oscuro para menor)
   const getColorByValue = (value: number, allValues: number[]) => {
@@ -122,7 +127,17 @@ export const DynamicBarChart: React.FC<DynamicBarChartProps> = ({
   return (
     <div className="w-full">
       {title && (
-        <h4 className="text-center text-sm font-medium text-gray-600 mb-4">{title}</h4>
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <h4 className="text-center text-sm font-medium text-gray-600">{title}</h4>
+          {infoContent && (
+            <InfoTooltip
+              content={infoContent}
+              title={infoTitle}
+              position="top"
+              size="sm"
+            />
+          )}
+        </div>
       )}
       <ResponsiveContainer width="100%" height={height}>
         <RechartsBarChart

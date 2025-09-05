@@ -8,6 +8,7 @@ import { useSupabase } from '@/components/providers/SupabaseProvider'
 import { useSound } from '@/hooks/useSound'
 import { useToast } from '@/hooks/useToast'
 import { ProfileImage } from '@/components/ui/ProfileImage'
+import { ProfileModal } from './ProfileModal'
 
 export function ProfileMenu() {
   const { user, userName, userProfileImage, signOut } = useSupabase()
@@ -15,6 +16,7 @@ export function ProfileMenu() {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
   const { playClick } = useSound()
   const { showSuccess, showError } = useToast()
   const menuRef = useRef<HTMLDivElement>(null)
@@ -50,7 +52,7 @@ export function ProfileMenu() {
       
       // Pequeño delay para mostrar la notificación antes de redirigir
       setTimeout(() => {
-        router.push('/login')
+        router.push('/')
       }, 1000)
       
     } catch (error) {
@@ -69,6 +71,12 @@ export function ProfileMenu() {
 
   const closeLogoutConfirm = () => {
     setShowLogoutConfirm(false)
+  }
+
+  const openProfileModal = () => {
+    playClick()
+    setShowProfileModal(true)
+    setIsOpen(false) // Cerrar el menú desplegable
   }
 
   return (
@@ -127,10 +135,7 @@ export function ProfileMenu() {
           {/* Opciones del menú */}
           <div className="py-2">
             <button
-              onClick={() => {
-                setIsOpen(false)
-                // Aquí podrías agregar navegación a perfil o configuración
-              }}
+              onClick={openProfileModal}
               className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors duration-200"
             >
               <User className="h-4 w-4" />
@@ -159,8 +164,8 @@ export function ProfileMenu() {
 
       {/* Modal de confirmación de logout */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 transform transition-all duration-300 scale-100">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-auto transform transition-all duration-300 scale-100">
             {/* Header del modal */}
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
@@ -211,6 +216,12 @@ export function ProfileMenu() {
           </div>
         </div>
       )}
+
+      {/* Modal de Perfil */}
+      <ProfileModal 
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+      />
     </div>
   )
 }

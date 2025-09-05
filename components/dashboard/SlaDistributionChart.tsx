@@ -3,17 +3,22 @@
 import React from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { getSlaTramColor } from '@/lib/chart-colors'
+import { InfoTooltip } from '@/components/ui/InfoTooltip'
 
 interface SlaDistributionChartProps {
   data: Array<{ name: string; value: number; totalEmailsPeriod: number; color: string }>
   title?: string
   height?: number
+  infoContent?: string
+  infoTitle?: string
 }
 
 export const SlaDistributionChart: React.FC<SlaDistributionChartProps> = ({
   data,
   title,
-  height = 300
+  height = 300,
+  infoContent,
+  infoTitle
 }) => {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -55,7 +60,17 @@ export const SlaDistributionChart: React.FC<SlaDistributionChartProps> = ({
   return (
     <div className="w-full" style={{ height: `${height}px` }}>
       {title && (
-        <h4 className="text-center text-sm font-medium text-gray-600 mb-4">{title}</h4>
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <h4 className="text-center text-sm font-medium text-gray-600">{title}</h4>
+          {infoContent && (
+            <InfoTooltip
+              content={infoContent}
+              title={infoTitle}
+              position="top"
+              size="sm"
+            />
+          )}
+        </div>
       )}
       <ResponsiveContainer width="100%" height="100%">
         <BarChart

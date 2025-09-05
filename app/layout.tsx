@@ -1,13 +1,15 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
+import './animations.css'
+import './login-styles.css'
 import { SupabaseProvider } from '@/components/providers/SupabaseProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'SmartHotels Dashboard',
-  description: 'Dashboard de rendimiento del sistema de respuestas automatizadas por IA para hoteles',
+  title: 'SmartHotels',
+  description: 'Revoluciona la gestión hotelera con correos automáticos y análisis en tiempo real. Dashboard ejecutivo para hoteles.',
   icons: {
     icon: [
       {

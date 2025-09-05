@@ -2,19 +2,24 @@
 
 import React from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
+import { InfoTooltip } from '@/components/ui/InfoTooltip'
 
 interface DonutChartProps {
   data: Array<{ name: string; value: number; color: string }>
   title?: string
   height?: number
   startAngle?: number
+  infoContent?: string
+  infoTitle?: string
 }
 
 export const DonutChart: React.FC<DonutChartProps> = ({
   data,
   title,
   height = 300,
-  startAngle = 90
+  startAngle = 90,
+  infoContent,
+  infoTitle
 }) => {
 
   const CustomTooltip = ({ active, payload }: any) => {
@@ -45,7 +50,17 @@ export const DonutChart: React.FC<DonutChartProps> = ({
   return (
     <div className="w-full">
       {title && (
-        <h4 className="text-center text-sm font-medium text-gray-600 mb-4">{title}</h4>
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <h4 className="text-center text-sm font-medium text-gray-600">{title}</h4>
+          {infoContent && (
+            <InfoTooltip
+              content={infoContent}
+              title={infoTitle}
+              position="top"
+              size="sm"
+            />
+          )}
+        </div>
       )}
       <ResponsiveContainer width="100%" height={height}>
         <PieChart>

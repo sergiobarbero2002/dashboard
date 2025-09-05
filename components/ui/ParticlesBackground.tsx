@@ -31,64 +31,63 @@ export function ParticlesBackground() {
     resizeCanvas()
     window.addEventListener('resize', resizeCanvas)
 
-    // Crear partículas
+    // Crear partículas doradas más visibles
     const particles: Particle[] = []
-    const particleCount = 80
+    const particleCount = 300
 
     for (let i = 0; i < particleCount; i++) {
       particles.push({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.4,
-        vy: (Math.random() - 0.5) * 0.4,
-        size: Math.random() * 2 + 0.8,
-        opacity: Math.random() * 0.6 + 0.2
+        vx: (Math.random() - 0.5) * 0.8,
+        vy: (Math.random() - 0.5) * 0.8,
+        size: Math.random() * 3 + 1.5,
+        opacity: Math.random() * 0.6 + 0.3
       })
     }
+
     particlesRef.current = particles
 
-    // Función de animación
+    // Función de animación simple
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-      // Actualizar y dibujar partículas
-      particles.forEach((particle, index) => {
+      // Fondo sutil dorado
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.03)'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      // Actualizar y dibujar partículas doradas
+      particles.forEach(particle => {
         // Mover partícula
         particle.x += particle.vx
         particle.y += particle.vy
 
-        // Rebotar suavemente en los bordes
-        if (particle.x <= 0 || particle.x >= canvas.width) particle.vx *= -0.8
-        if (particle.y <= 0 || particle.y >= canvas.height) particle.vy *= -0.8
+        // Rebotar en los bordes
+        if (particle.x <= 0 || particle.x >= canvas.width) particle.vx *= -1
+        if (particle.y <= 0 || particle.y >= canvas.height) particle.vy *= -1
 
         // Mantener en pantalla
         particle.x = Math.max(0, Math.min(canvas.width, particle.x))
         particle.y = Math.max(0, Math.min(canvas.height, particle.y))
 
-        // Dibujar partícula
+        // Dibujar partícula dorada con gradiente
+        const gradient = ctx.createRadialGradient(
+          particle.x, particle.y, 0,
+          particle.x, particle.y, particle.size
+        )
+        gradient.addColorStop(0, `rgba(245, 158, 11, ${particle.opacity})`)
+        gradient.addColorStop(1, `rgba(245, 158, 11, ${particle.opacity * 0.3})`)
+        
         ctx.beginPath()
         ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(212, 175, 55, ${particle.opacity})`
+        ctx.fillStyle = gradient
         ctx.fill()
-
-        // Conectar partículas cercanas con líneas suaves
-        particles.forEach((otherParticle, otherIndex) => {
-          if (index === otherIndex) return
-
-          const dx = particle.x - otherParticle.x
-          const dy = particle.y - otherParticle.y
-          const distance = Math.sqrt(dx * dx + dy * dy)
-
-          if (distance < 140) {
-            const opacity = (1 - (distance / 140)) * 0.4
-            ctx.beginPath()
-            ctx.moveTo(particle.x, particle.y)
-            ctx.lineTo(otherParticle.x, otherParticle.y)
-            ctx.strokeStyle = `rgba(212, 175, 55, ${opacity})`
-            ctx.lineWidth = 0.8
-            ctx.stroke()
-          }
-        })
+        
+        // Añadir brillo sutil
+        ctx.beginPath()
+        ctx.arc(particle.x, particle.y, particle.size * 0.3, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(255, 255, 255, ${particle.opacity * 0.5})`
+        ctx.fill()
       })
 
       animationRef.current = requestAnimationFrame(animate)
@@ -109,7 +108,7 @@ export function ParticlesBackground() {
       ref={canvasRef}
       className="fixed inset-0 w-full h-full pointer-events-none z-0"
       style={{
-        background: 'linear-gradient(135deg, var(--color-background-marble), var(--color-marble-veins))',
+        background: 'linear-gradient(135deg, #fefefe 0%, #f8f9fa 50%, #f1f3f4 100%)',
         opacity: 0.8
       }}
     />

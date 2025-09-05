@@ -33,32 +33,6 @@ export async function getHotelDatabaseConfig(hotelGroupId: string): Promise<Data
   }
 }
 
-// Función para obtener todas las configuraciones de base de datos
-export async function getAllHotelDatabaseConfigs(): Promise<Record<string, DatabaseConfig>> {
-  try {
-    const hotelGroupConfigsStr = process.env.HOTEL_GROUP_CONFIGS
-    if (!hotelGroupConfigsStr) {
-      return {}
-    }
-
-    const hotelGroupConfigs = JSON.parse(hotelGroupConfigsStr)
-    const configs: Record<string, DatabaseConfig> = {}
-    
-    // Obtener configuración para cada grupo
-    for (const groupId of Object.keys(hotelGroupConfigs)) {
-      const config = await getHotelDatabaseConfig(groupId)
-      if (config) {
-        configs[groupId] = config
-      }
-    }
-    
-    return configs
-  } catch (error) {
-    console.error('Error getting all hotel database configs:', error)
-    return {}
-  }
-}
-
 // Función para obtener conexión a la base de datos de un hotel específico
 export async function getHotelConnection(hotelGroupId: string): Promise<PoolClient | null> {
   try {

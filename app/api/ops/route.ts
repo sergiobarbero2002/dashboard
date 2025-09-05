@@ -1152,7 +1152,6 @@ export async function GET(request: NextRequest) {
         totalOffersSent: (() => {
           const current = upsellingByIntervalResult.rows.reduce((sum: number, row: any) => sum + parseInt(row.offers_sent || 0), 0)
           const previous = comparisonUpsellingByIntervalResult.rows.reduce((sum: number, row: any) => sum + parseInt(row.offers_sent || 0), 0)
-          console.log('🔍 Debug totalOffersSent:', { current, previous })
           return comparisonPeriodData ? calculateVariation(current, previous) : null
         })(),
         totalOffersConverted: (() => {
@@ -1166,7 +1165,6 @@ export async function GET(request: NextRequest) {
             const conversionRate = parseFloat(row.conversion_rate || 0)
             return sum + Math.round((offersSent * conversionRate) / 100)
           }, 0)
-          console.log('🔍 Debug totalOffersConverted:', { current, previous })
           return comparisonPeriodData ? calculateVariation(current, previous) : null
         })(),
         avgConversionRate: (() => {
@@ -1174,7 +1172,6 @@ export async function GET(request: NextRequest) {
             upsellingByIntervalResult.rows.reduce((sum: number, row: any) => sum + parseFloat(row.conversion_rate || 0), 0) / upsellingByIntervalResult.rows.length : 0
           const previous = comparisonUpsellingByIntervalResult.rows.length > 0 ? 
             comparisonUpsellingByIntervalResult.rows.reduce((sum: number, row: any) => sum + parseFloat(row.conversion_rate || 0), 0) / comparisonUpsellingByIntervalResult.rows.length : 0
-          console.log('🔍 Debug avgConversionRate:', { current, previous })
           return comparisonPeriodData ? calculateVariation(current, previous) : null
         })(),
         avgOfferRate: (() => {
@@ -1190,7 +1187,6 @@ export async function GET(request: NextRequest) {
               const offersSent = parseInt(row.offers_sent || 0)
               return totalEmails > 0 ? sum + (offersSent / totalEmails) * 100 : sum
             }, 0) / comparisonUpsellingByIntervalResult.rows.length : 0
-          console.log('🔍 Debug avgOfferRate:', { current, previous })
           return comparisonPeriodData ? calculateVariation(current, previous) : null
         })()
       },

@@ -85,17 +85,15 @@ export function Header({
         </div>
         
         {/* Controles centrales - Solo fechas y refresh */}
-        <div className="flex items-center">
-          <HeaderControls
-            dateRange={dateRange}
-            onDateChange={onDateChange}
-            onRefresh={onRefresh}
-            onIntervalChange={onIntervalChange}
-            loading={loading}
-            lastUpdated={lastUpdated}
-            currentInterval={currentInterval}
-          />
-        </div>
+        <HeaderControls
+          dateRange={dateRange}
+          onDateChange={onDateChange}
+          onRefresh={onRefresh}
+          onIntervalChange={onIntervalChange}
+          loading={loading}
+          lastUpdated={lastUpdated}
+          currentInterval={currentInterval}
+        />
         
         {/* Menú de perfil */}
         <div className="flex items-center">

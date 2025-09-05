@@ -3,6 +3,7 @@
 import React from 'react'
 import { cn } from '@/lib/utils'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { InfoTooltip } from '@/components/ui/InfoTooltip'
 
 interface KpiCardProps {
   title: string
@@ -13,6 +14,8 @@ interface KpiCardProps {
   className?: string
   icon?: React.ReactNode
   extraContent?: React.ReactNode
+  infoContent?: string
+  infoTitle?: string
 }
 
 export const KpiCard: React.FC<KpiCardProps> = ({
@@ -23,7 +26,9 @@ export const KpiCard: React.FC<KpiCardProps> = ({
   status,
   className,
   icon,
-  extraContent
+  extraContent,
+  infoContent,
+  infoTitle
 }) => {
   const getVariationIcon = () => {
     if (!variation) return <Minus className="h-4 w-4 text-gray-400" />
@@ -62,6 +67,14 @@ export const KpiCard: React.FC<KpiCardProps> = ({
           <div className="flex items-center gap-2 mb-2">
             {icon && <div className="text-smarthotels-gold">{icon}</div>}
             <h3 className="text-sm font-medium text-gray-600">{title}</h3>
+            {infoContent && (
+              <InfoTooltip
+                content={infoContent}
+                title={infoTitle}
+                position="top"
+                size="sm"
+              />
+            )}
           </div>
           <div className="flex items-baseline gap-2">
             <p className="text-3xl font-bold text-gray-900">{value}</p>

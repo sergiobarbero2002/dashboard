@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { InfoTooltip } from '@/components/ui/InfoTooltip'
 
 interface LineChartProps {
   data: Array<{ name: string; value: number; [key: string]: any }>
@@ -11,6 +12,8 @@ interface LineChartProps {
   yAxisLabel?: string
   lines: Array<{ key: string; color: string; label: string }>
   showDetailedTooltip?: boolean
+  infoContent?: string
+  infoTitle?: string
 }
 
 export const LineChart: React.FC<LineChartProps> = ({
@@ -20,7 +23,9 @@ export const LineChart: React.FC<LineChartProps> = ({
   xAxisLabel,
   yAxisLabel,
   lines,
-  showDetailedTooltip = false
+  showDetailedTooltip = false,
+  infoContent,
+  infoTitle
 }) => {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -101,7 +106,17 @@ export const LineChart: React.FC<LineChartProps> = ({
   return (
     <div className="w-full">
       {title && (
-        <h4 className="text-center text-sm font-medium text-gray-600 mb-4">{title}</h4>
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <h4 className="text-center text-sm font-medium text-gray-600">{title}</h4>
+          {infoContent && (
+            <InfoTooltip
+              content={infoContent}
+              title={infoTitle}
+              position="top"
+              size="sm"
+            />
+          )}
+        </div>
       )}
       <ResponsiveContainer width="100%" height={height}>
         <RechartsLineChart

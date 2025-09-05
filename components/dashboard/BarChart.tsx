@@ -3,6 +3,7 @@
 import React from 'react'
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { getSlaTramColor } from '@/lib/chart-colors'
+import { InfoTooltip } from '@/components/ui/InfoTooltip'
 
 interface BarChartProps {
   data: Array<{ name: string; value: number; count?: number; totalEmailsPeriod?: number; color?: string }>
@@ -11,6 +12,8 @@ interface BarChartProps {
   xAxisLabel?: string
   yAxisLabel?: string
   horizontal?: boolean
+  infoContent?: string
+  infoTitle?: string
 }
 
 export const BarChart: React.FC<BarChartProps> = ({
@@ -19,7 +22,9 @@ export const BarChart: React.FC<BarChartProps> = ({
   height = 300,
   xAxisLabel,
   yAxisLabel,
-  horizontal = false
+  horizontal = false,
+  infoContent,
+  infoTitle
 }) => {
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -60,7 +65,17 @@ export const BarChart: React.FC<BarChartProps> = ({
   return (
     <div className="w-full">
       {title && (
-        <h4 className="text-center text-sm font-medium text-gray-600 mb-4">{title}</h4>
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <h4 className="text-center text-sm font-medium text-gray-600">{title}</h4>
+          {infoContent && (
+            <InfoTooltip
+              content={infoContent}
+              title={infoTitle}
+              position="top"
+              size="sm"
+            />
+          )}
+        </div>
       )}
       <ResponsiveContainer width="100%" height={height}>
         <RechartsBarChart

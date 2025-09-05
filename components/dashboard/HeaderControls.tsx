@@ -65,7 +65,8 @@ const createIntervalOption = (
   type: string, 
   label: string, 
   currentInterval: string, 
-  onChange: (value: string) => void
+  onChange: (value: string) => void,
+  playClick: () => void
 ) => (
   <div className="flex items-center gap-3">
     <input
@@ -74,7 +75,10 @@ const createIntervalOption = (
       name="interval"
       value={type}
       checked={currentInterval.startsWith(type)}
-      onChange={() => onChange(type)}
+      onChange={() => {
+        onChange(type)
+        playClick()
+      }}
       className="text-smarthotels-gold focus:ring-smarthotels-gold"
     />
     <label htmlFor={type} className="text-sm font-medium text-gray-700 min-w-[60px]">
@@ -88,13 +92,14 @@ const createIntervalOption = (
         const value = e.target.value
         if (value && parseInt(value) > 0) {
           onChange(`${type}${value}`)
+          playClick()
         }
       }}
       className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-smarthotels-gold focus:border-smarthotels-gold"
       disabled={!currentInterval.startsWith(type)}
     />
   </div>
-)
+ )
 
 // Función para crear opciones de fecha rápida
 const createDatePresetOption = (
@@ -102,7 +107,8 @@ const createDatePresetOption = (
   label: string,
   description: string,
   selected: string,
-  onChange: (value: string) => void
+  onChange: (value: string) => void,
+  playClick: () => void
 ) => (
   <div className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
     <div className="flex items-center gap-3">
@@ -112,7 +118,10 @@ const createDatePresetOption = (
         name="date-preset"
         value={id}
         checked={selected === id}
-        onChange={() => onChange(id)}
+        onChange={() => {
+          onChange(id)
+          playClick()
+        }}
         className="text-smarthotels-gold focus:ring-smarthotels-gold"
       />
       <label htmlFor={id} className="text-sm font-medium text-gray-700">
@@ -121,7 +130,7 @@ const createDatePresetOption = (
     </div>
     <span className="text-xs text-gray-500">{description}</span>
   </div>
-)
+ )
 
 export function HeaderControls({ 
   dateRange, 
@@ -305,8 +314,8 @@ export function HeaderControls({
 
 
   return (
-    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-40">
-      <div className="flex items-center gap-4">
+    <div className="flex items-center justify-center flex-1 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-4 flex-wrap justify-center">
         {/* Botón Fechas con Personalizado incluido */}
         <div className="relative" ref={datePickerRef}>
           <Button
@@ -316,7 +325,7 @@ export function HeaderControls({
               setShowDatePicker(!showDatePicker)
               playClick()
             }}
-            className="text-sm px-4 py-2 h-10 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200"
+            className="text-xs sm:text-sm px-2 sm:px-4 py-2 h-8 sm:h-10 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200"
           >
             <Calendar className="h-4 w-4 mr-2" />
             Fechas
@@ -331,11 +340,11 @@ export function HeaderControls({
                 <div className="space-y-3">
                   <h4 className="text-sm font-medium text-gray-700">Períodos Rápidos:</h4>
                   
-                  {createDatePresetOption('last-week', 'Última semana', '7 días atrás', selectedDatePreset, handleQuickDate)}
-                  {createDatePresetOption('last-month', 'Último mes', '30 días atrás', selectedDatePreset, handleQuickDate)}
-                  {createDatePresetOption('last-quarter', 'Último trimestre', '3 meses atrás', selectedDatePreset, handleQuickDate)}
-                  {createDatePresetOption('last-year', 'Último año', '12 meses atrás', selectedDatePreset, handleQuickDate)}
-                  {createDatePresetOption('ytd', 'YTD', 'Año actual', selectedDatePreset, handleQuickDate)}
+                  {createDatePresetOption('last-week', 'Última semana', '7 días atrás', selectedDatePreset, handleQuickDate, playClick)}
+                  {createDatePresetOption('last-month', 'Último mes', '30 días atrás', selectedDatePreset, handleQuickDate, playClick)}
+                  {createDatePresetOption('last-quarter', 'Último trimestre', '3 meses atrás', selectedDatePreset, handleQuickDate, playClick)}
+                  {createDatePresetOption('last-year', 'Último año', '12 meses atrás', selectedDatePreset, handleQuickDate, playClick)}
+                  {createDatePresetOption('ytd', 'YTD', 'Año actual', selectedDatePreset, handleQuickDate, playClick)}
                 </div>
 
                 {/* Separador */}
@@ -346,7 +355,10 @@ export function HeaderControls({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setShowDatePicker(false)}
+                    onClick={() => {
+                      setShowDatePicker(false)
+                      playClick()
+                    }}
                     className="flex-1 text-sm"
                   >
                     Cancelar
@@ -367,10 +379,13 @@ export function HeaderControls({
                   <Button
                     variant="outline"
                     size="sm"
-                onClick={handlePersonalizado}
+                    onClick={() => {
+                      handlePersonalizado()
+                      playClick()
+                    }}
                     className="w-full text-sm"
-              >
-                Personalizado
+                  >
+                    Personalizado
                   </Button>
                 </div>
               </div>
@@ -411,7 +426,10 @@ export function HeaderControls({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setShowCustomPicker(false)}
+                    onClick={() => {
+                      setShowCustomPicker(false)
+                      playClick()
+                    }}
                     className="flex-1 text-sm"
                   >
                     Cancelar
@@ -439,7 +457,7 @@ export function HeaderControls({
               setShowIntervalPicker(!showIntervalPicker)
               playClick()
             }}
-            className="text-sm px-4 py-2 h-10 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200"
+            className="text-xs sm:text-sm px-2 sm:px-4 py-2 h-8 sm:h-10 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200"
           >
             <BarChart3 className="h-4 w-4 mr-2" />
             Intervalos
@@ -459,7 +477,10 @@ export function HeaderControls({
                       name="interval"
                       value="auto"
                       checked={localCurrentInterval === 'auto'}
-                      onChange={() => setLocalCurrentInterval('auto')}
+                      onChange={() => {
+                        setLocalCurrentInterval('auto')
+                        playClick()
+                      }}
                       className="text-smarthotels-gold focus:ring-smarthotels-gold"
                     />
                     <label htmlFor="auto" className="text-sm font-medium text-gray-700">
@@ -476,10 +497,10 @@ export function HeaderControls({
                 <div className="space-y-3">
                   <h4 className="text-sm font-medium text-gray-700">Personalizar:</h4>
                   
-                  {createIntervalOption('day', 'Días', localCurrentInterval, setLocalCurrentInterval)}
-                  {createIntervalOption('week', 'Semanas', localCurrentInterval, setLocalCurrentInterval)}
-                  {createIntervalOption('month', 'Meses', localCurrentInterval, setLocalCurrentInterval)}
-                  {createIntervalOption('year', 'Años', localCurrentInterval, setLocalCurrentInterval)}
+                  {createIntervalOption('day', 'Días', localCurrentInterval, setLocalCurrentInterval, playClick)}
+                  {createIntervalOption('week', 'Semanas', localCurrentInterval, setLocalCurrentInterval, playClick)}
+                  {createIntervalOption('month', 'Meses', localCurrentInterval, setLocalCurrentInterval, playClick)}
+                  {createIntervalOption('year', 'Años', localCurrentInterval, setLocalCurrentInterval, playClick)}
                 </div>
 
                 {/* Botón de Aplicar */}
@@ -489,6 +510,7 @@ export function HeaderControls({
                     size="sm"
                     onClick={() => {
                       handleIntervalChange(localCurrentInterval)
+                      playClick()
                     }}
                     className="w-full text-sm bg-smarthotels-gold hover:bg-yellow-600 text-white"
                   >
