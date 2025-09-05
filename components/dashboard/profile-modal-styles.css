@@ -1,5 +1,13 @@
 /* Estilos personalizados para el Modal de Perfil */
 
+/* Estilos para el contenedor del modal */
+.profile-modal {
+  position: relative;
+  margin: auto;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
 /* Animación de entrada del modal */
 @keyframes modalSlideIn {
   from {
@@ -226,8 +234,9 @@
 /* Estilos para dispositivos móviles */
 @media (max-width: 768px) {
   .profile-modal {
-    margin: 1rem;
+    margin: 1rem auto;
     max-width: calc(100vw - 2rem);
+    max-height: 95vh;
   }
   
   .profile-modal-header {
@@ -257,5 +266,22 @@
   
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Estilos para el modal de logout */
+.logout-modal {
+  position: relative;
+  margin: auto;
+  max-height: 80vh;
+  overflow: hidden;
+}
+
+/* Estilos para el contenedor del modal de logout en móviles */
+@media (max-width: 768px) {
+  .logout-modal {
+    margin: 1rem auto;
+    max-width: calc(100vw - 2rem);
+    max-height: 90vh;
   }
 }

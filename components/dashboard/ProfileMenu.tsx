@@ -164,8 +164,8 @@ export function ProfileMenu() {
 
       {/* Modal de confirmación de logout */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
-          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-auto transform transition-all duration-300 scale-100">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 min-h-screen">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-auto my-auto transform transition-all duration-300 scale-100 logout-modal">
             {/* Header del modal */}
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
