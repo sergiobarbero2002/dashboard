@@ -299,7 +299,7 @@ export default function MainPage() {
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-500" />
                   <Zap className="w-4 h-4 mr-2 animate-pulse" />
-                  <span className="relative z-10">Prueba nuestra Demo</span>
+                  <span className="relative z-10">Probar Demo Ahora</span>
                 </Button>
               </div>
             </div>
@@ -505,7 +505,7 @@ export default function MainPage() {
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
                   
                   <Zap className="w-6 h-6 mr-3 animate-pulse" />
-                  <span className="relative z-10">Probar Demo</span>
+                  <span className="relative z-10">Probar Demo Ahora</span>
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-bounce"></div>
                 </Button>
                 <Button
@@ -678,7 +678,7 @@ export default function MainPage() {
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-100 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-500" />
                   <div className="flex items-center gap-2 relative z-10">
                     <Zap className="w-4 h-4 animate-pulse" />
-                    <span>Probar Demo</span>
+                    <span>Probar Demo Ahora</span>
                   </div>
                 </Button>
               </div>
@@ -977,7 +977,7 @@ export default function MainPage() {
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-500" />
                     <Zap className="w-4 h-4 mr-2 animate-pulse" />
-                    <span className="relative z-10">Prueba nuestra Demo</span>
+                    <span className="relative z-10">Probar Demo Ahora</span>
                   </Button>
                 </div>
               </div>
