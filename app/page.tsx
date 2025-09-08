@@ -234,7 +234,7 @@ export default function MainPage() {
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-500" />
                 <Zap className="w-4 h-4 mr-1 animate-pulse" />
-                <span className="relative z-10 hidden sm:inline">Prueba nuestra demo</span>
+                <span className="relative z-10 hidden sm:inline">Probar Demo Ahora</span>
                 <span className="relative z-10 sm:hidden">Demo</span>
               </Button>
 
@@ -417,11 +417,147 @@ export default function MainPage() {
 
             </div>
 
+            {/* Pipeline Visual - Flujo del Servicio */}
+            <div className="mb-12 animate-fade-in-up -mt-16" style={{ animationDelay: '0.6s' }}>
+              <div className="w-full">
+                {/* Pipeline unificado con línea y círculos integrados */}
+                <div className="relative">
+                  {/* Línea base con círculos integrados */}
+                  <div className="flex items-center justify-center relative">
+                    
+                    {/* Círculo 1: Email del cliente */}
+                    <div className="flex flex-col items-center group relative z-10">
+                      <div className="w-20 h-20 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-2xl border-4 border-white group-hover:scale-110 transition-transform duration-300 relative">
+                        <Mail className="w-10 h-10 text-white" />
+                        {/* Efecto de brillo en hover */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      </div>
+                      <div className="mt-3 text-center">
+                        <div className="text-lg font-bold text-slate-800">Email</div>
+                        <div className="text-sm text-slate-600">del huésped</div>
+                      </div>
+                      {/* Ejemplo de email del cliente */}
+                      <div className="mt-3 bg-white rounded-2xl p-4 text-base text-left max-w-80 shadow-xl border border-slate-200">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-8 h-8 bg-slate-500 rounded-full flex items-center justify-center">
+                            <span className="text-white text-sm font-bold">C</span>
+                          </div>
+                          <div>
+                            <div className="font-semibold text-slate-800">Cliente Potencial</div>
+                            <div className="text-sm text-slate-500">hace 2 minutos</div>
+                          </div>
+                        </div>
+                        <div className="bg-slate-50 rounded-lg p-3">
+                          <p className="text-slate-700">"Buenos días, me gustaría saber si tienen disponibilidad para el fin de semana del 15-17 de marzo. Somos una familia de 4 personas y necesitaríamos 2 habitaciones."</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Flecha 1: Email → Respuesta */}
+                    <div className="flex flex-col items-center justify-center mx-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-1 bg-gradient-to-r from-amber-400 to-amber-500 rounded-full"></div>
+                        <div className="w-0 h-0 border-l-8 border-l-amber-500 border-t-4 border-t-transparent border-b-4 border-b-transparent"></div>
+                      </div>
+                    </div>
+
+                    {/* Círculo 2: Respuesta automática */}
+                    <div className="flex flex-col items-center group relative z-10">
+                      <div className="w-20 h-20 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-2xl border-4 border-white group-hover:scale-110 transition-transform duration-300 relative">
+                        <Sparkles className="w-10 h-10 text-white" />
+                        {/* Efecto de brillo en hover */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      </div>
+                      <div className="mt-3 text-center">
+                        <div className="text-lg font-bold text-slate-800">Respuestas y borradores</div>
+                        <div className="text-sm text-slate-600">automáticos</div>
+                      </div>
+                      {/* Ejemplo de respuesta generada */}
+                      <div className="mt-3 bg-gradient-to-r from-amber-50 to-amber-100 rounded-2xl p-4 text-base text-left max-w-80 border-2 border-amber-200 shadow-xl">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center">
+                            <span className="text-white text-sm font-bold">S</span>
+                          </div>
+                          <div>
+                            <div className="font-semibold text-slate-800">SmartHotels</div>
+                            <div className="text-sm text-amber-600">Respuesta/borrador automático</div>
+                          </div>
+                        </div>
+                        <div className="bg-white rounded-lg p-3 border border-amber-200">
+                          <p className="text-slate-700">"¡Hola! Gracias por contactarnos. Sí tenemos disponibilidad para esas fechas. Te envío nuestras mejores ofertas para 2 habitaciones..."</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Flecha 2: Respuesta → Beneficios */}
+                    <div className="flex flex-col items-center justify-center mx-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-1 bg-gradient-to-r from-amber-500 to-amber-600 rounded-full"></div>
+                        <div className="w-0 h-0 border-l-8 border-l-amber-600 border-t-4 border-t-transparent border-b-4 border-b-transparent"></div>
+                      </div>
+                    </div>
+
+                    {/* Círculo 3: Beneficios */}
+                    <div className="flex flex-col items-center group relative z-10">
+                      <div className="w-20 h-20 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-2xl border-4 border-white group-hover:scale-110 transition-transform duration-300 relative">
+                        <TrendingUp className="w-10 h-10 text-white" />
+                        {/* Efecto de brillo en hover */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      </div>
+                      <div className="mt-3 text-center">
+                        <div className="text-lg font-bold text-slate-800">Beneficios</div>
+                        <div className="text-sm text-slate-600">para tu hotel</div>
+                      </div>
+                      {/* Lista de beneficios */}
+                      <div className="mt-3 bg-gradient-to-r from-amber-50 to-amber-100 rounded-2xl p-4 text-base text-left max-w-80 border-2 border-amber-200 shadow-xl">
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-3 text-emerald-700">
+                            <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">1</span>
+                            </div>
+                            <span className="font-medium">Aumenta reservas</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-3 text-emerald-700">
+                            <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">2</span>
+                            </div>
+                            <span className="font-medium">Ahorra horas de trabajo</span>
+                          </div>
+
+                          <div className="flex items-center gap-3 text-blue-700">
+                            <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">3</span>
+                            </div>
+                            <span className="font-medium">Aumenta ingresos por upselling</span>
+                          </div>
+
+                          <div className="flex items-center gap-3 text-blue-700">
+                            <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">4</span>
+                            </div>
+                            <span className="font-medium">Reduce costes operativos</span>
+                          </div>
+
+                          <div className="flex items-center gap-3 text-purple-700">
+                            <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">5</span>
+                            </div>
+                            <span className="font-medium">Mejores reseñas</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Grid de imágenes prominentes */}
             <div className="grid lg:grid-cols-[1fr_1.15fr] gap-8 items-stretch mb-20">
               
               {/* Imagen izquierda - Email AI */}
-              <div className="animate-slide-in-left h-full">
+              <div className="animate-slide-in-left h-full" data-email-section>
                 <div className="relative group h-full">
                   <div className="absolute -inset-6 bg-gradient-to-r from-amber-400/20 to-amber-600/20 rounded-3xl blur-2xl group-hover:blur-3xl transition-all duration-500" />
                   <div className="relative bg-white/90 backdrop-blur-xl rounded-3xl px-4 py-8 shadow-2xl border border-amber-200/50 h-full flex flex-col">
