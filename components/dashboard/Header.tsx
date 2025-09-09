@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useSupabase } from '@/components/providers/SupabaseProvider'
 import { ProfileMenu } from './ProfileMenu'
 import { HeaderControls } from './HeaderControls'
@@ -35,9 +36,11 @@ export function Header({
               {/* Cuadrado elegante con bordes dorados y fondo blanco */}
               <div className="w-12 h-12 bg-white rounded-lg shadow-lg border-2 border-smarthotels-gold flex items-center justify-center transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl">
                 {/* Logo centrado */}
-                <img
+                <Image
                   src="/assets/images/smarthotels-logo.png"
                   alt="SmartHotels Logo"
+                  width={40}
+                  height={40}
                   className="h-10 w-10 object-contain"
                 />
               </div>
@@ -72,9 +75,11 @@ export function Header({
             {/* Cuadrado elegante con bordes dorados y fondo blanco */}
             <div className="w-12 h-12 bg-white rounded-lg shadow-lg border-2 border-smarthotels-gold flex items-center justify-center transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl">
               {/* Logo centrado */}
-              <img
+              <Image
                 src="/assets/images/smarthotels-logo.png"
                 alt="SmartHotels Logo"
+                width={40}
+                height={40}
                 className="h-10 w-10 object-contain"
               />
             </div>

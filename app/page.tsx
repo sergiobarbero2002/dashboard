@@ -448,7 +448,7 @@ export default function MainPage() {
                           </div>
                         </div>
                         <div className="bg-slate-50 rounded-lg p-3">
-                          <p className="text-slate-700">"Buenos días, me gustaría saber si tienen disponibilidad para el fin de semana del 15-17 de marzo. Somos una familia de 4 personas y necesitaríamos 2 habitaciones."</p>
+                          <p className="text-slate-700">&ldquo;Buenos días, me gustaría saber si tienen disponibilidad para el fin de semana del 15-17 de marzo. Somos una familia de 4 personas y necesitaríamos 2 habitaciones.&rdquo;</p>
                         </div>
                       </div>
                     </div>
@@ -484,7 +484,7 @@ export default function MainPage() {
                           </div>
                         </div>
                         <div className="bg-white rounded-lg p-3 border border-amber-200">
-                          <p className="text-slate-700">"¡Hola! Gracias por contactarnos. Sí tenemos disponibilidad para esas fechas. Te envío nuestras mejores ofertas para 2 habitaciones..."</p>
+                          <p className="text-slate-700">&ldquo;¡Hola! Gracias por contactarnos. Sí tenemos disponibilidad para esas fechas. Te envío nuestras mejores ofertas para 2 habitaciones...&rdquo;</p>
                         </div>
                       </div>
                     </div>
@@ -836,43 +836,28 @@ export default function MainPage() {
             
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="feature-card p-6 bg-white/80 backdrop-blur-xl rounded-2xl border border-amber-200/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-2">
-                <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <TrendingUp className="w-7 h-7 text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-slate-800 mb-3 text-center">Más Reservas</h3>
-                <p className="text-slate-600 text-center leading-relaxed text-sm">Respuestas rápidas que convierten consultas en reservas confirmadas sin perder oportunidades.</p>
-                <div className="mt-3 flex justify-center">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 rounded-full text-green-800 text-xs font-semibold">
-                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                    Conversión Directa
-                  </div>
-                </div>
-              </div>
-
-              <div className="feature-card p-6 bg-white/80 backdrop-blur-xl rounded-2xl border border-amber-200/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-2">
                 <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4">
                   <Users className="w-7 h-7 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-slate-800 mb-3 text-center">Equipo Optimizado</h3>
-                <p className="text-slate-600 text-center leading-relaxed text-sm">La tecnología hace el trabajo pesado para que tu equipo se enfoque en lo importante.</p>
+                <h3 className="text-xl font-bold text-slate-800 mb-3 text-center">Recupera Clientes</h3>
+                <p className="text-slate-600 text-center leading-relaxed text-sm">Pierdes clientes por no responder a tiempo. Muchos. Solo por esta razón ya es rentable.</p>
                 <div className="mt-3 flex justify-center">
                   <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 rounded-full text-blue-800 text-xs font-semibold">
                     <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                    Eficiencia Total
+                    Mayor Conversión
                   </div>
                 </div>
               </div>
-
               <div className="feature-card p-6 bg-white/80 backdrop-blur-xl rounded-2xl border border-amber-200/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-2">
-                <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <Star className="w-7 h-7 text-white" />
+                <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+                  <TrendingUp className="w-7 h-7 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-slate-800 mb-3 text-center">Mejor Imagen</h3>
-                <p className="text-slate-600 text-center leading-relaxed text-sm">Atención profesional que mejora la reputación y genera reseñas positivas de huéspedes.</p>
+                <h3 className="text-xl font-bold text-slate-800 mb-3 text-center">Ahorro de Personal</h3>
+                <p className="text-slate-600 text-center leading-relaxed text-sm">Ya no pagas por esas horas que podrían invertir en un mejor servicio para tus clientes.</p>
                 <div className="mt-3 flex justify-center">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-100 rounded-full text-purple-800 text-xs font-semibold">
-                    <span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>
-                    Reputación Premium
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 rounded-full text-green-800 text-xs font-semibold">
+                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                    Ahorro Real
                   </div>
                 </div>
               </div>
@@ -882,11 +867,24 @@ export default function MainPage() {
                   <TrendingUp className="w-7 h-7 text-white" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-800 mb-3 text-center">Más Ingresos</h3>
-                <p className="text-slate-600 text-center leading-relaxed text-sm">Ofertas personalizadas que aumentan el valor promedio por reserva de forma natural.</p>
+                <p className="text-slate-600 text-center leading-relaxed text-sm">Ofertas personalizadas inteligentes en cada correo. Aumenta el ticket medio.</p>
                 <div className="mt-3 flex justify-center">
                   <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-100 rounded-full text-amber-800 text-xs font-semibold">
                     <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
                     Mayor Rentabilidad
+                  </div>
+                </div>
+              </div>
+              <div className="feature-card p-6 bg-white/80 backdrop-blur-xl rounded-2xl border border-amber-200/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-2">
+                <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+                  <Star className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 mb-3 text-center">Mejor Imagen</h3>
+                <p className="text-slate-600 text-center leading-relaxed text-sm">Respuestas en minutos, 24/7, 30 idiomas y estética personalizada.</p>
+                <div className="mt-3 flex justify-center">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-100 rounded-full text-purple-800 text-xs font-semibold">
+                    <span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>
+                    Mejora tu imagen online
                   </div>
                 </div>
               </div>
@@ -988,17 +986,13 @@ export default function MainPage() {
                 
                 <div className="space-y-4 text-slate-600 leading-relaxed">
                   <p>
-                    No me gustan las descripciones grandilocuentes. Resuelvo problemas reales 
-                    y ayudo a los hoteles a generar más ingresos mientras reducen costes operativos. 
-                    Mi trabajo se mide en resultados, no en palabras.
-                  </p>
-                  <p>
-                    Nuestra tecnología potencia la experiencia humana, no la reemplaza. 
+                    No me gustan las descripciones grandilocuentes. Sé cómo hacer que ahorres tiempo
+                    y dinero en el canal de contacto más importante de tu hotel. Y sé hacerlo rentable
+                    y sencillo para ti.
                   </p>
                   <p>
                     Soy físico, programador y tengo experiencia demostrada aplicando inteligencia artificial a negocios.
                     Me encanta lo que hago, y tengo la libertad de poder decirlo de verdad.
-                    Siempre estoy abierto a conocer, ayudar y avanzar con vosotros en el sector.
                   </p>
                 </div>
               </div>

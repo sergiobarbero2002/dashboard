@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { createClient, User, Session } from '@supabase/supabase-js'
 
 interface SupabaseContextType {
@@ -52,7 +52,7 @@ export const SupabaseProvider = ({ children }: { children: React.ReactNode }) =>
   const [loading, setLoading] = useState(true)
 
   // Función para cargar configuración del usuario desde el nuevo endpoint
-  const loadUserConfiguration = async (email: string, accessToken: string) => {
+  const loadUserConfiguration = useCallback(async (email: string, accessToken: string) => {
     try {
       const response = await fetch('/api/user-config', {
         headers: {
@@ -91,7 +91,7 @@ export const SupabaseProvider = ({ children }: { children: React.ReactNode }) =>
     } catch (error) {
       console.error('Error loading user configuration:', error)
     }
-  }
+  }, [selectedHotels])
 
   // Función para verificar imagen y obtener fallback
   const checkImageAndGetFallback = async (imagePath: string): Promise<string> => {
@@ -143,7 +143,7 @@ export const SupabaseProvider = ({ children }: { children: React.ReactNode }) =>
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [loadUserConfiguration])
 
   // Cargar hoteles seleccionados desde localStorage al inicializar
   useEffect(() => {

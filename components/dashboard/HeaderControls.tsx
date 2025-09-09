@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/Button'
 import { RefreshCw, Calendar, Clock, BarChart3 } from 'lucide-react'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useToast } from '@/hooks/useToast'
 import { useSound } from '@/hooks/useSound'
 
@@ -159,10 +159,10 @@ export function HeaderControls({
   }, [propCurrentInterval])
 
   // Valores por defecto para evitar errores cuando dateRange es undefined
-  const safeDateRange = dateRange || {
+  const safeDateRange = useMemo(() => dateRange || {
     from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 días atrás
     to: new Date()
-  }
+  }, [dateRange])
 
   // Inicializar el preset seleccionado cuando se abre el picker
   useEffect(() => {
