@@ -91,7 +91,7 @@ export const SupabaseProvider = ({ children }: { children: React.ReactNode }) =>
     } catch (error) {
       console.error('Error loading user configuration:', error)
     }
-  }, [selectedHotels])
+  }, [])
 
   // Función para verificar imagen y obtener fallback
   const checkImageAndGetFallback = async (imagePath: string): Promise<string> => {
