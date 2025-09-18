@@ -190,7 +190,10 @@ export const useRealDashboardData = (savingsParams?: { minutesPerEmail: number; 
       const compareParam = `&compareFrom=${previousFromDate}&compareTo=${previousToDate}`
       const apiUrl = `/api/ops?from=${fromDate}&to=${toDate}&hotels=${JSON.stringify(selectedHotels)}${intervalParam}${compareParam}`
       
-      console.log('📡 Llamando a API con URL:', apiUrl)
+      console.log('📡 === LLAMANDO A API ===')
+      console.log('📊 selectedHotels que se envían:', selectedHotels)
+      console.log('📊 selectedHotels JSON:', JSON.stringify(selectedHotels))
+      console.log('📡 URL completa:', apiUrl)
       
       // Obtener datos del período actual CON variaciones calculadas por la API
       const response = await fetch(apiUrl, {

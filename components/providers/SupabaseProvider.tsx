@@ -91,7 +91,7 @@ export const SupabaseProvider = ({ children }: { children: React.ReactNode }) =>
     } catch (error) {
       console.error('Error loading user configuration:', error)
     }
-  }, [])
+  }, [selectedHotels])
 
   // Función para verificar imagen y obtener fallback
   const checkImageAndGetFallback = async (imagePath: string): Promise<string> => {
@@ -197,7 +197,17 @@ export const SupabaseProvider = ({ children }: { children: React.ReactNode }) =>
     hotels,
     hotelsData,
     selectedHotels,
-    updateSelectedHotels: setSelectedHotels,
+    updateSelectedHotels: (hotels: string[]) => {
+      console.log('🏨 === ACTUALIZANDO HOTELES SELECCIONADOS ===')
+      console.log('📊 Hoteles anteriores:', selectedHotels)
+      console.log('📊 Hoteles nuevos:', hotels)
+      setSelectedHotels(hotels)
+      // Persistir en localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('selectedHotels', JSON.stringify(hotels))
+        console.log('💾 Hoteles guardados en localStorage')
+      }
+    },
     signInWithPassword,
     signOut,
     userName,

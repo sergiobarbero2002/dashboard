@@ -154,7 +154,7 @@ const generateVolumeQuery = (intervalType: string, intervalQuantity: number, hot
         COUNT(*) FILTER (WHERE ai_reply IS NOT NULL AND manual_intervention = FALSE) AS emails_automatic,
         COUNT(*) FILTER (WHERE response_ts IS NULL AND received_ts IS NOT NULL) AS emails_unanswered
       FROM mail_message m
-      WHERE m.received_ts BETWEEN $1 AND $2
+      WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
       ${hotelFilter}
       GROUP BY DATE_TRUNC('${intervalType}', m.received_ts)
     )
@@ -196,7 +196,7 @@ const generateRevenueQuery = (intervalType: string, intervalQuantity: number, ho
         COALESCE(SUM(a.upsell_revenue_eur), 0) AS total_revenue
       FROM mail_analysis a
       JOIN mail_message m ON a.mail_uuid = m.id
-      WHERE m.received_ts BETWEEN $1 AND $2
+      WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
         AND a.upselling_offer = TRUE
         AND a.upsell_accepted = TRUE
         ${hotelFilter}
@@ -243,7 +243,7 @@ const generateUpsellingQuery = (intervalType: string, intervalQuantity: number, 
         ) AS conversion_rate
       FROM mail_analysis a
       JOIN mail_message m ON a.mail_uuid = m.id
-      WHERE m.received_ts BETWEEN $1 AND $2
+      WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
       ${hotelFilter}
       GROUP BY DATE_TRUNC('${intervalType}', m.received_ts)
     ),
@@ -252,7 +252,7 @@ const generateUpsellingQuery = (intervalType: string, intervalQuantity: number, 
         DATE_TRUNC('${intervalType}', m.received_ts) AS interval_start,
         COUNT(*) AS total_emails_interval
       FROM mail_message m
-      WHERE m.received_ts BETWEEN $1 AND $2
+      WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
       ${hotelFilter}
       GROUP BY DATE_TRUNC('${intervalType}', m.received_ts)
     )
@@ -302,7 +302,7 @@ const generateIncidentsQuery = (intervalType: string, intervalQuantity: number, 
         ROUND(AVG(i.delay_resolucion_min)) AS avg_resolution_delay
       FROM mail_incidencias i
       JOIN mail_message m ON i.uuid = m.id
-      WHERE m.received_ts BETWEEN $1 AND $2
+      WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
       ${hotelFilter}
       GROUP BY DATE_TRUNC('${intervalType}', m.received_ts)
     )
@@ -418,20 +418,27 @@ export async function GET(request: NextRequest) {
     }
     
     // Procesar hoteles seleccionados
+    console.log('🏨 === PROCESANDO HOTELES SELECCIONADOS ===')
+    console.log('📋 selectedHotels parameter:', selectedHotels)
+    
     let hotelIds: string[] = []
     if (selectedHotels) {
       try {
         const parsedHotels = JSON.parse(selectedHotels)
         // Asegurar que sea un array
         hotelIds = Array.isArray(parsedHotels) ? parsedHotels : []
+        console.log('✅ Hoteles parseados desde parámetro:', hotelIds)
       } catch (error) {
-        console.error('Error parsing selectedHotels:', error)
+        console.error('❌ Error parsing selectedHotels:', error)
         hotelIds = []
       }
+    } else {
+      console.log('⚠️ No hay selectedHotels en parámetros')
     }
     
     // Si no hay hoteles seleccionados, usar todos los disponibles
     if (hotelIds.length === 0) {
+      console.log('🔄 No hay hoteles seleccionados, obteniendo del grupo...')
       // Obtener todos los hoteles del grupo desde la configuración
       try {
         const hotelGroupConfigsStr = process.env.HOTEL_GROUP_CONFIGS
@@ -441,10 +448,14 @@ export async function GET(request: NextRequest) {
           if (hotelGroupConfig && hotelGroupConfig.id) {
             hotelIds = hotelGroupConfig.id
             console.log('🏨 Hoteles obtenidos del grupo:', hotelIds)
+          } else {
+            console.log('❌ No se encontró configuración del grupo para tenant:', tenantId)
           }
+        } else {
+          console.log('❌ HOTEL_GROUP_CONFIGS no está definido')
         }
       } catch (error) {
-        console.error('Error obteniendo hoteles del grupo:', error)
+        console.error('❌ Error obteniendo hoteles del grupo:', error)
         hotelIds = []
       }
     }
@@ -477,18 +488,33 @@ export async function GET(request: NextRequest) {
     
     // Crear filtro SQL para hotel_id
     const hotelFilter = hotelsWithData.length > 0 
-      ? `AND m.hotel_id = ANY($${3})` 
+      ? `AND m.hotel_id = ANY($3)` 
       : ''
     
+    console.log('🏨 === HOTELES FINALES PARA CONSULTAS ===')
+    console.log('📊 hotelsWithData:', hotelsWithData)
+    console.log('📊 hotelsWithData length:', hotelsWithData.length)
+    console.log('📊 hotelsWithData type:', typeof hotelsWithData)
+    console.log('📝 hotelFilter SQL:', hotelFilter)
+    console.log('🔍 ¿hotelsWithData está vacío?', hotelsWithData.length === 0 ? 'SÍ' : 'NO')
+    
     // Función helper para usar hotelsWithData en lugar de hotelIds
-    const getQueryParams = (from: string, to: string) => [from, to, hotelsWithData]
+    const getQueryParams = (from: string, to: string) => {
+      const params = [from, to, hotelsWithData]
+      console.log('📊 Parámetros de query:', params)
+      console.log('📊 Tercer parámetro (hoteles):', params[2])
+      return params
+    }
 
     // ===== VERIFICAR CONEXIÓN A BASE DE DATOS =====
     try {
       const debugResult = await query(tenantId, `
         SELECT COUNT(*) as total_messages FROM mail_message m
-        WHERE m.received_ts BETWEEN $1 AND $2
+        WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
       `, [from, to])
+      
+      console.log('🔍 DEBUG BD: Total mensajes =', debugResult.rows[0]?.total_messages || 0)
+      console.log('🔍 DEBUG BD: ¿Hay datos?', (debugResult.rows[0]?.total_messages || 0) > 0 ? 'SÍ' : 'NO')
       
     } catch (error) {
       console.error('❌ Error conexión BD:', error instanceof Error ? error.message : String(error))
@@ -514,9 +540,10 @@ export async function GET(request: NextRequest) {
             COUNT(*) FILTER (WHERE manual_intervention = TRUE) AS emails_manual,
             COUNT(*) FILTER (WHERE response_ts IS NULL AND received_ts IS NOT NULL) AS emails_unanswered
           FROM mail_message m
-          WHERE m.received_ts BETWEEN $1 AND $2
+          WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
           ${hotelFilter}
         `, getQueryParams(startDate, endDate))
+        console.log('📧 EMAILS RESULT:', results.emails.rows[0])
       } catch (error) {
         console.error('❌ Error emails:', error)
         results.emails = { rows: [] }
@@ -528,7 +555,7 @@ export async function GET(request: NextRequest) {
           SELECT 
             AVG(m.response_ts - m.received_ts) AS avg_response_interval
           FROM mail_message m
-          WHERE m.received_ts BETWEEN $1 AND $2
+          WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
             AND m.response_ts IS NOT NULL 
             AND m.response_ts > m.received_ts
             ${hotelFilter}
@@ -550,7 +577,7 @@ export async function GET(request: NextRequest) {
               )
             END AS sla_10min_pct
           FROM mail_message m
-          WHERE m.received_ts BETWEEN $1 AND $2
+          WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
             AND m.response_ts IS NOT NULL 
             AND m.response_ts > m.received_ts
             ${hotelFilter}
@@ -567,7 +594,7 @@ export async function GET(request: NextRequest) {
             COALESCE(SUM(upsell_revenue_eur), 0) AS total_revenue
           FROM mail_analysis a
           JOIN mail_message m ON a.mail_uuid = m.id
-          WHERE m.received_ts BETWEEN $1 AND $2
+          WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
             AND a.upselling_offer = TRUE
             AND a.upsell_accepted = TRUE
             ${hotelFilter}
@@ -587,7 +614,7 @@ export async function GET(request: NextRequest) {
             ROUND(AVG(i.delay_resolucion_min)) AS avg_resolution_delay
           FROM mail_incidencias i
           JOIN mail_message m ON i.uuid = m.id
-          WHERE m.received_ts BETWEEN $1 AND $2
+          WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
           ${hotelFilter}
         `, getQueryParams(startDate, endDate))
       } catch (error) {
@@ -603,7 +630,7 @@ export async function GET(request: NextRequest) {
             COUNT(*) AS total
           FROM mail_analysis a
           JOIN mail_message m ON a.mail_uuid = m.id
-          WHERE m.received_ts BETWEEN $1 AND $2
+          WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
             AND sentiment IS NOT NULL
             ${hotelFilter}
           GROUP BY sentiment
@@ -683,7 +710,7 @@ export async function GET(request: NextRequest) {
             END AS sla_tramo,
             COUNT(*) AS total
         FROM mail_message m
-        WHERE m.received_ts BETWEEN $1 AND $2
+        WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
           AND m.response_ts IS NOT NULL 
           AND m.response_ts > m.received_ts
           ${hotelFilter}
@@ -724,7 +751,7 @@ export async function GET(request: NextRequest) {
           COUNT(*) FILTER (WHERE response_ts IS NOT NULL AND response_ts > received_ts AND (response_ts - received_ts) > INTERVAL '4 hours' AND (response_ts - received_ts) <= INTERVAL '24 hours') as messages_4h_to_24h,
           COUNT(*) FILTER (WHERE response_ts IS NOT NULL AND response_ts > received_ts AND (response_ts - received_ts) > INTERVAL '24 hours') as messages_over_24h
         FROM mail_message m
-        WHERE m.received_ts BETWEEN $1 AND $2
+        WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
           ${hotelFilter}
       `, getQueryParams(from, to))
       
@@ -745,7 +772,7 @@ export async function GET(request: NextRequest) {
             (COUNT(*) FILTER (WHERE m.manual_intervention = TRUE)::decimal / COUNT(*)) * 100, 1
           ) AS pct_manual
         FROM mail_message m
-        WHERE m.received_ts BETWEEN $1 AND $2
+        WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
         ${hotelFilter}
         GROUP BY DATE_TRUNC('month', m.received_ts)
         ORDER BY 1
@@ -766,7 +793,7 @@ export async function GET(request: NextRequest) {
           COUNT(*) AS total
         FROM mail_analysis a
         JOIN mail_message m ON a.mail_uuid = m.id
-        WHERE m.received_ts BETWEEN $1 AND $2
+        WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
           AND sentiment IS NOT NULL
           ${hotelFilter}
         GROUP BY sentiment
@@ -786,7 +813,7 @@ export async function GET(request: NextRequest) {
           COUNT(*) AS total
         FROM mail_analysis a
         JOIN mail_message m ON a.mail_uuid = m.id
-        WHERE m.received_ts BETWEEN $1 AND $2
+        WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
           AND a.language IS NOT NULL
           ${hotelFilter}
         GROUP BY language
@@ -807,7 +834,7 @@ export async function GET(request: NextRequest) {
           COUNT(*) AS total
         FROM mail_analysis a
         JOIN mail_message m ON a.mail_uuid = m.id
-        WHERE m.received_ts BETWEEN $1 AND $2
+        WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
           AND a.main_category IS NOT NULL
           ${hotelFilter}
         GROUP BY main_category
@@ -831,7 +858,7 @@ export async function GET(request: NextRequest) {
           COALESCE(SUM(upsell_revenue_eur), 0) AS total_revenue
         FROM mail_analysis a
         JOIN mail_message m ON a.mail_uuid = m.id
-        WHERE m.received_ts BETWEEN $1 AND $2
+        WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
         ${hotelFilter}
       `, getQueryParams(from, to))
 
@@ -920,7 +947,7 @@ export async function GET(request: NextRequest) {
           ROUND(AVG(delay_resolucion_min)) AS avg_resolution_delay
         FROM mail_incidencias i
         JOIN mail_message m ON i.uuid = m.id
-        WHERE m.received_ts BETWEEN $1 AND $2
+        WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
         ${hotelFilter}
       `, getQueryParams(from, to))
 
@@ -941,7 +968,7 @@ export async function GET(request: NextRequest) {
               FROM mail_incidencias i
               JOIN mail_message m ON i.uuid = m.id
               JOIN mail_analysis a ON m.id = a.mail_uuid
-              WHERE m.received_ts BETWEEN $1 AND $2
+              WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
               ${hotelFilter}
               GROUP BY 
                 CASE 
@@ -961,7 +988,7 @@ export async function GET(request: NextRequest) {
         FROM mail_incidencias i
         JOIN mail_message m ON i.uuid = m.id
         JOIN mail_analysis a ON m.id = a.mail_uuid
-        WHERE m.received_ts BETWEEN $1 AND $2
+        WHERE m.received_ts >= $1::date AND m.received_ts < ($2::date + INTERVAL '1 day')
         ${hotelFilter}
       `, getQueryParams(from, to))
 
